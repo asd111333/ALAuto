@@ -11,8 +11,8 @@ class HomographyTransform():
     def __init__(self):
         self.__top_left_tile_x = None
         self.__top_left_tile_y = None
-        self.__x_max_index = None
-        self.__y_max_index = None
+        self.__col_max_idx = None
+        self.__row_max_idx = None
         self.__screen = None
         self.__color_screen = None
         self.__h_trans_m = None
@@ -25,9 +25,13 @@ class HomographyTransform():
                                  cv2.imread(trans_consts.FREE_TILES_IMG_DOWN, cv2.IMREAD_GRAYSCALE),
                                  cv2.imread(trans_consts.FREE_TILES_IMG_LEFT, cv2.IMREAD_GRAYSCALE),
                                  cv2.imread(trans_consts.FREE_TILES_IMG_RIGHT, cv2.IMREAD_GRAYSCALE)]
-        self.__boss_img = cv2.imread(trans_consts.BOSS_SMALL_IMG)
-        self.__small_boss_img = cv2.imread(trans_consts.BOSS_IMG)
-        self.__arrow_img = cv2.imread(trans_consts.ARROW_IMG)
+        self.__trans_boss_img = cv2.imread(trans_consts.TRANS_BOSS_IMG)
+        self.__trans_small_boss_img = cv2.imread(trans_consts.TRANS_SMALL_BOSS_IMG, cv2.IMREAD_COLOR)
+        self.__trans_arrow_img = cv2.imread(trans_consts.TRANS_ARROW_IMG, cv2.IMREAD_COLOR)
+        self.__arrow_img = cv2.imread(trans_consts.ARROW_IMG, cv2.IMREAD_COLOR)
+        self.__enemy1_img = cv2.imread(trans_consts.ENEMY_1_IMG, cv2.IMREAD_COLOR)
+        self.__enemy2_img = cv2.imread(trans_consts.ENEMY_2_IMG, cv2.IMREAD_COLOR)
+        self.__enemy3_img = cv2.imread(trans_consts.ENEMY_3_IMG, cv2.IMREAD_COLOR)
 
     def init_homg_vars(self):
         """
@@ -159,10 +163,10 @@ class HomographyTransform():
         # Calculate how many tiles on the map and the coordinate of top left tile in homography space
         self.__top_left_tile_x = int(x % trans_consts.TILE_WIDTH)
         self.__top_left_tile_y = int(y % trans_consts.TILE_HEIGHT)
-        self.__y_max_index = int(
+        self.__row_max_idx = int(
             (self.__h_trans_screen_size[
                  1] - self.__top_left_tile_y + trans_consts.TILE_HEIGHT - 1) / trans_consts.TILE_HEIGHT)
-        self.__x_max_index = int(
+        self.__col_max_idx = int(
             (self.__h_trans_screen_size[
                  0] - self.__top_left_tile_x + trans_consts.TILE_WIDTH - 1) / trans_consts.TILE_WIDTH)
 
@@ -173,7 +177,7 @@ class HomographyTransform():
          Return the shape of the map which will be returned in create_map()
          Dependencies: init_map_coordinate
          """
-        return (self.__y_max_index, self.__x_max_index)
+        return (self.__row_max_idx, self.__col_max_idx)
 
     def create_map(self):
         """
@@ -197,8 +201,8 @@ class HomographyTransform():
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (closing_kernel, closing_kernel))
         screen_edge_closed = cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE, kernel)
 
-        x_max_index = self.__x_max_index
-        y_max_index = self.__y_max_index
+        x_max_index = self.__col_max_idx
+        y_max_index = self.__row_max_idx
 
         battle_map = np.zeros(shape=(y_max_index, x_max_index))
 
@@ -273,6 +277,8 @@ class HomographyTransform():
 
         self.__match_boss(screen_trans, battle_map)
         self.__match_character(screen_trans, battle_map)
+        self.__match_mob_tile_scale(self.__color_screen, battle_map)
+        self.__match_character_tile_scale(self.__color_screen, battle_map)
 
         # for debugging
         cv2.imwrite("debug_color_trans.png", screen_trans)
@@ -292,9 +298,9 @@ class HomographyTransform():
         :return:
         """
         if self.__small_boss_icon:
-            boss = self.__small_boss_img
+            boss = self.__trans_small_boss_img
         else:
-            boss = self.__boss_img
+            boss = self.__trans_boss_img
         res = cv2.matchTemplate(screen_trans, boss, cv2.TM_CCOEFF_NORMED)
         max_similarity = np.max(res)
 
@@ -305,9 +311,10 @@ class HomographyTransform():
             point = list(zip(*loc[::-1]))
             if len(point) > 0:
                 # Calculate x and y of the tile where the boos is
-                x, y = self.coord_to_map_index((point[0][0], point[0][1]))
-                if 0 <= x < battle_map.shape[1] and 0 <= y < battle_map.shape[0]:
-                    battle_map[y, x] = trans_consts.MAP_BOSS
+                row, col = self.coord_to_map_index(
+                    (point[0][0], point[0][1]))
+                if 0 <= col < self.__col_max_idx and 0 <= row < self.__row_max_idx:
+                    battle_map[row, col] = trans_consts.MAP_BOSS
 
     def __match_character(self, screen_trans, battle_map):
         """
@@ -318,7 +325,7 @@ class HomographyTransform():
         :param battle_map: M x N numpy array
         :return:
         """
-        arrow = self.__arrow_img
+        arrow = self.__trans_arrow_img
         res = cv2.matchTemplate(screen_trans, arrow, cv2.TM_CCOEFF_NORMED)
         max_similarity = np.max(res)
 
@@ -330,10 +337,97 @@ class HomographyTransform():
             if len(point) > 0:
                 # Calculate x and y of the tile where the character is
                 # add a y offset due to the arrow is above the character
-                x, y = self.coord_to_map_index(
+                row, col = self.coord_to_map_index(
                     (point[0][0], point[0][1] + trans_consts.ARROW_CHARACTER_Y_OFFSET))
-                if 0 <= x < battle_map.shape[1] and 0 <= y < battle_map.shape[0]:
-                    battle_map[y, x] = trans_consts.MAP_CHARACTER
+                if 0 <= col < self.__col_max_idx and 0 <= row < self.__row_max_idx:
+                    battle_map[row, col] = trans_consts.MAP_CHARACTER
+
+    def __match_mob_tile_scale(self, screen, battle_map):
+        """
+        Find the tiles where the enemies are located.
+        Result will write into the corresponded tile in battle_map.
+        Dependencies: init_map_coordinate
+        :param screen: the color screen to find the boss icon
+        :param battle_map: M x N numpy array
+        :return:
+        """
+
+        scaling_base = trans_consts.SCALING_BASE
+
+        if self.__row_max_idx < 2:
+            return
+        for i in range(self.__row_max_idx):
+            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
+            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
+            dist = np.linalg.norm(p1 - p2, ord=2)
+            scale = dist / scaling_base
+            e1_scaled = cv2.resize(self.__enemy1_img, None, fx=scale, fy=scale)
+            e2_scaled = cv2.resize(self.__enemy2_img, None, fx=scale, fy=scale)
+            e3_scaled = cv2.resize(self.__enemy3_img, None, fx=scale, fy=scale)
+            search_square_edge = int(trans_consts.SCALED_ENEMY_MATCH_SQUARE_SIDE * scale)
+            search_x_offset = int(trans_consts.SCALED_ENEMY_X_OFFSET * scale)
+            search_y_offset = int(trans_consts.SCALED_ENEMY_Y_OFFSET * scale)
+            for j in range(self.__col_max_idx):
+                tile_center = self.map_index_to_coord((i, j))
+                tile_corner = np.subtract(tile_center, [trans_consts.TILE_WIDTH / 2, trans_consts.TILE_HEIGHT / 2])
+                org_tile_corner = np.array(self.inv_transform_coord(tile_corner), dtype=np.int)
+                org_tile_corner[0] += search_x_offset
+                org_tile_corner[1] += search_y_offset
+                corp = screen[org_tile_corner[1]:org_tile_corner[1] + search_square_edge,
+                       org_tile_corner[0]:org_tile_corner[0] + search_square_edge, :]
+                if corp.shape[0] >= e1_scaled.shape[0] and corp.shape[1] >= e1_scaled.shape[1]:
+                    res = cv2.matchTemplate(corp, e1_scaled, cv2.TM_CCOEFF_NORMED)
+                    max_similarity = np.max(res)
+                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
+                        battle_map[i, j] = trans_consts.MAP_ENEMY
+                if corp.shape[0] >= e2_scaled.shape[0] and corp.shape[1] >= e2_scaled.shape[1]:
+                    res = cv2.matchTemplate(corp, e2_scaled, cv2.TM_CCOEFF_NORMED)
+                    max_similarity = np.max(res)
+                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
+                        battle_map[i, j] = trans_consts.MAP_ENEMY
+                if corp.shape[0] >= e3_scaled.shape[0] and corp.shape[1] >= e3_scaled.shape[1]:
+                    res = cv2.matchTemplate(corp, e3_scaled, cv2.TM_CCOEFF_NORMED)
+                    max_similarity = np.max(res)
+                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
+                        battle_map[i, j] = trans_consts.MAP_ENEMY
+
+    def __match_character_tile_scale(self, screen, battle_map):
+        """
+        Find the tile where the character is located.
+        Result will write into the corresponded tile in battle_map.
+        Dependencies: init_map_coordinate
+        :param screen: the color screen to find the boss icon
+        :param battle_map: M x N numpy array
+        :return:
+        """
+
+        scaling_base = trans_consts.SCALING_BASE
+
+        if self.__row_max_idx < 2:
+            return
+
+        for i in range(self.__row_max_idx):
+            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
+            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
+            dist = np.linalg.norm(p1 - p2, ord=2)
+            scale = dist / scaling_base
+            arrow = cv2.resize(self.__arrow_img, None, fx=scale, fy=scale)
+            search_square_edge = int(trans_consts.SCALED_ARROW_MATCH_SQUARE_SIDE * scale)
+            search_x_offset = int(trans_consts.SCALED_ARROW_X_OFFSET * scale)
+            search_y_offset = int(trans_consts.SCALED_ARROW_Y_OFFSET * scale)
+            for j in range(self.__col_max_idx):
+                tile_center = self.map_index_to_coord((i, j))
+                tile_corner = np.subtract(tile_center, [trans_consts.TILE_WIDTH / 2, trans_consts.TILE_HEIGHT / 2])
+                org_tile_corner = np.array(self.inv_transform_coord(tile_corner), dtype=np.int)
+                org_tile_corner[0] += search_x_offset
+                org_tile_corner[1] += search_y_offset
+                corp = screen[org_tile_corner[1]:org_tile_corner[1] + search_square_edge,
+                       org_tile_corner[0]:org_tile_corner[0] + search_square_edge, :]
+                if corp.shape[0] >= arrow.shape[0] and corp.shape[1] >= arrow.shape[1]:
+                    res = cv2.matchTemplate(corp, arrow, cv2.TM_CCOEFF_NORMED)
+                    max_similarity = np.max(res)
+                    if max_similarity > trans_consts.SCALED_ARROW_MATCH_THRESH:
+                        battle_map[i, j] = trans_consts.MAP_CHARACTER
 
     def coord_to_map_index(self, coord):
         """
