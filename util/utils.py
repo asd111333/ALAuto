@@ -57,6 +57,7 @@ class Region(object):
         Args:
             other (Region): The region to intersect with.
 
+<<<<<<< HEAD
         Returns:
             intersection (Region) or None.
         """
@@ -410,7 +411,7 @@ class Utils(object):
         if limit == 0:
             return True
 
-        #cls.menu_navigate("menu/button_battle")
+        # cls.menu_navigate("menu/button_battle")
 
         while len(oil) < 5:
             _res = int(cls.read_numbers(970, 38, 101, 36))
@@ -803,3 +804,31 @@ class Utils(object):
             return hsv_avg_color
         else:
             return bgr_avg_color
+
+    @classmethod
+    def find_in_region(cls, image, region, similarity=DEFAULT_SIMILARITY, color=False):
+        """Finds the specified image on the screen
+
+        Args:
+            image (string): [description]
+            similarity (float, optional): Defaults to DEFAULT_SIMILARITY.
+                Percentage in similarity that the image should at least match.
+            color (boolean): match with color template
+
+        Returns:
+            Region: region object containing the location and size of the image
+        """
+        if color:
+            crop = cls.color_screen[region.y:region.y + region.h, region.x:region.x + region.w, :]
+            template = cv2.imread('assets/{}/{}.png'.format(cls.assets, image), cv2.IMREAD_COLOR)
+        else:
+            crop = cls.screen[region.y:region.y + region.h, region.x:region.x + region.w]
+            template = cv2.imread('assets/{}/{}.png'.format(cls.assets, image), cv2.IMREAD_GRAYSCALE)
+        height, width = template.shape[:2]
+        match = cv2.matchTemplate(crop, template, cv2.TM_CCOEFF_NORMED)
+        tmp = cv2.minMaxLoc(match)
+        value = tmp[1]
+        location = tmp[3]
+        if value >= similarity:
+            return Region(location[0] + region.x, location[1] + region.y, width, height)
+        return None
