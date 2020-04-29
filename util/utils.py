@@ -8,10 +8,12 @@ from imutils import contours, grab_contours
 from datetime import datetime, timedelta
 from random import uniform, gauss, randint
 from scipy import spatial
+from func_timeout import func_timeout, FunctionTimedOut
 from util.adb import Adb
 from util.logger import Logger
 from util.config_consts import UtilConsts
 from threading import Thread
+
 
 
 class Region(object):
@@ -428,7 +430,7 @@ class Utils(object):
         return last_ocr
 
     @classmethod
-    def menu_navigate(cls, image):
+    def menu_navigate_(cls, image):
         cls.update_screen()
 
         while not cls.find(image, 0.85):
@@ -832,3 +834,94 @@ class Utils(object):
         if value >= similarity:
             return Region(location[0] + region.x, location[1] + region.y, width, height)
         return None
+
+
+    @classmethod
+    def menu_navigate(cls, image=None):
+        button_battle = "menu/button_battle"
+        alert_close = "menu/notice_close"
+        button_go = "commission/button_go"
+        button_completed = "commission/button_completed"
+        button_return = "menu/return"
+        dorm_return = "headquarters/dorm_return"
+        reconnect_msg = "menu/reconnect"
+        button_confirm = "menu/button_confirm"
+        button_home = "menu/button_home"
+
+        cls.update_screen()
+        while not cls.find(button_battle, 0.85):
+
+            return_coord = cls.find(button_return)
+            alert_coord = cls.find(alert_close)
+            go_coord = cls.find(button_go)
+            completed_coord = cls.find(button_completed)
+            dorm_return_coord = cls.find(dorm_return)
+            reconnect_msg_coord = cls.find(reconnect_msg)
+            button_confirm_coord = cls.find(button_confirm)
+            home_coord = cls.find(button_home)
+
+            if home_coord:
+                cls.touch_randomly(home_coord)
+            elif return_coord:
+                cls.touch_randomly(return_coord)
+            elif alert_coord:
+                cls.touch_randomly(alert_coord)
+            elif dorm_return_coord:
+                cls.touch_randomly(dorm_return_coord)
+            elif go_coord or completed_coord:
+                cls.touch_randomly(Region(1342, 520, 57, 29))
+            elif reconnect_msg_coord:
+                cls.touch_randomly(button_confirm_coord)
+            else:
+                cls.touch_randomly(Region(0, 0, 1920, 1080))
+            cls.wait_update_screen(1)
+        return
+
+
+    @classmethod
+    def login_handler(cls):
+        button_battle = "menu/button_battle"
+        alert_close = "menu/notice_close"
+        button_confirm = "menu/button_confirm"
+        button_update_confirm = "menu/button_update_confirm"
+        login = "menu/login_icon"
+
+        cls.update_screen()
+        while not cls.find(button_battle, 0.85):
+            alert_coord = cls.find(alert_close)
+            button_confirm_coord = cls.find(button_confirm)
+            button_update_confirm_coord = cls.find(button_update_confirm)
+            login_coord = cls.find(login)
+
+            if alert_coord:
+                if button_update_confirm_coord:
+                    cls.touch_randomly(button_update_confirm_coord)
+                else:
+                    cls.touch_randomly(alert_coord)
+            elif button_confirm_coord:
+                cls.touch_randomly(button_confirm_coord)
+            elif login_coord:
+                cls.touch_randomly(Region(1540, 770, 360, 60))
+            cls.wait_update_screen(1)
+        return
+
+    @classmethod
+    def restart_game(cls):
+        package_name = 'com.YoStarEN.AzurLane'
+        start_args = 'monkey -p {} 1'.format(package_name)
+        stop_args = 'am force-stop {}'.format(package_name)
+        Adb.shell(stop_args)
+        Utils.script_sleep(1)
+        Adb.shell(start_args)
+
+    @classmethod
+    def restart_handler(cls):
+        while True:
+            Utils.restart_game()
+            try:
+                func_timeout(600, Utils.login_handler)
+                func_timeout(300, Utils.menu_navigate)
+            except FunctionTimedOut:
+                continue
+            break
+

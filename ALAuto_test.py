@@ -2,8 +2,9 @@ import sys
 import re
 import traceback
 import argparse
+from func_timeout import func_timeout, FunctionTimedOut
 from modules.combat_2 import CombatModule
-from modules.commission import CommissionModule
+from modules.commission_2 import CommissionModule
 from modules.enhancement import EnhancementModule
 from modules.mission import MissionModule
 from modules.retirement import RetirementModule
@@ -205,31 +206,32 @@ else:
     Logger.log_error('Unable to connect to the service.')
     sys.exit()
 
+
+Utils.restart_handler()
 try:
     while True:
         Utils.update_screen()
-
         # temporal solution to event alerts
-        if not Utils.find("menu/button_battle"):
-            Utils.touch_randomly(Region(54, 57, 67, 67))
-            Utils.script_sleep(1)
-            continue
-        if Utils.find("commission/alert_completed"):
-            script.run_commission_cycle()
+        try:
+            func_timeout(300,Utils.menu_navigate)
+            func_timeout(600,script.run_commission_cycle)
             script.print_cycle_stats()
-        if Utils.find("mission/alert_completed"):
-            script.run_mission_cycle()
-        if Utils.find("headquarters/hq_alert"):
-            script.run_hq_cycle()
-        if Utils.find("research/lab_alert"):
-            script.run_research_cycle()
-        if script.should_sortie():
-            script.run_sortie_cycle()
-            script.print_cycle_stats()
-        else:
-            Logger.log_msg("Nothing to do, will check again in a few minutes.")
-            Utils.script_sleep(300)
-            continue
+            if Utils.find("mission/alert_completed"):
+                func_timeout(600, script.run_mission_cycle)
+            if Utils.find("headquarters/hq_alert"):
+                func_timeout(600, script.run_hq_cycle)
+            if Utils.find("research/lab_alert"):
+                func_timeout(600, script.run_research_cycle)
+            if script.should_sortie():
+                func_timeout(1800, script.run_sortie_cycle)
+                script.print_cycle_stats()
+            else:
+                Logger.log_msg("Nothing to do, will check again in a few minutes.")
+                Utils.script_sleep(300)
+                continue
+        except FunctionTimedOut:
+            Utils.restart_handler()
+
 except KeyboardInterrupt:
     # handling ^C from user
     Logger.log_msg("Received keyboard interrupt from user. Closing...")

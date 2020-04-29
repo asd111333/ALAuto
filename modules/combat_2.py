@@ -123,8 +123,8 @@ class CombatModule(object):
         self.boss_fleet_found = False
         self.sea_map = None
         self.boss_defeated = False
-        self.mob_fleet_no = 2
-        self.boss_fleet_no = 1
+        self.mob_fleet_no = 1
+        self.boss_fleet_no = 2
         self.switch_fleet_after_combats = 5
         self.force_fleet_no = None
         self.last_visited_idx = None
@@ -257,6 +257,7 @@ class CombatModule(object):
         map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.99)
         if map_region != None:
             Logger.log_msg("Found specified map.")
+            Utils.touch_randomly(map_region)
             return map_region
         else:
             # navigate map selection menu
@@ -623,7 +624,7 @@ class CombatModule(object):
                     ret = self.attack_boss(boss_region)
                     if ret == 1:
                         self.exit = 1
-                        continue
+                        break
                     else:
                         while ret != 1:
                             if self.attack_boss_resolver():
@@ -773,7 +774,7 @@ class CombatModule(object):
                     return True, target_index
                 elif ret > 0:
                     if self.battle_handler():
-                        Utils.script_sleep(3)
+                        Utils.script_sleep(1)
                         return True, target_index
         return False, None
 
@@ -1063,6 +1064,7 @@ class CombatModule(object):
         if tmp_map is None:
             return False
         free_list = self.get_free_tile_list(tmp_map)
+        """
         prev_enemy_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, tmp_map)
         while self.move_fleet_to_free_tile(free_list):
             tmp_map = self.merge_map()
@@ -1072,6 +1074,11 @@ class CombatModule(object):
             else:
                 return True
         return False
+        """
+        if self.move_fleet_to_free_tile(free_list):
+            return True
+        else:
+            return False
 
     def find_objs_on_map(self, item, sea_map):
         loc = np.flip(np.where(sea_map == item), axis=0)
