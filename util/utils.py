@@ -59,7 +59,6 @@ class Region(object):
         Args:
             other (Region): The region to intersect with.
 
-<<<<<<< HEAD
         Returns:
             intersection (Region) or None.
         """
