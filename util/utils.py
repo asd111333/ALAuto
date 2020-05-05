@@ -925,3 +925,48 @@ class Utils(object):
                 continue
             break
 
+
+    @classmethod
+    def wait_till_stable(cls, similarity=DEFAULT_SIMILARITY, min_time=0.5, max_time=None, frame_count=3):
+        counter = 0
+        t_start = datetime.now()
+        t_prev = t_start
+        t_current = t_start
+        accum_stable_time = timedelta(seconds=0)
+        cls.update_screen()
+        screen_prev = cls.color_screen
+        while max_time is not None and t_current - t_start < timedelta(seconds=max_time):
+            t_current = datetime.now()
+            if t_current - t_prev < timedelta(microseconds=100):
+                time.sleep(0.2-(t_current-t_prev).total_seconds())
+                t_current = datetime.now()
+
+            cls.update_screen()
+            _screen = cls.color_screen
+            _screen_similarity = cv2.matchTemplate(_screen, screen_prev, cv2.TM_CCOEFF_NORMED)
+            screen_prev = _screen
+
+            print(_screen_similarity[0][0])
+
+            if _screen_similarity[0][0] > similarity:
+                counter += 1
+                accum_stable_time += t_current - t_prev
+            else:
+                counter = 0
+                accum_stable_time = timedelta(seconds=0)
+
+            if counter >= frame_count:
+                if min_time is not None:
+                    if accum_stable_time >= timedelta(seconds=min_time):
+                        return True
+                else:
+                    return True
+
+            t_prev = t_current
+
+        return False
+
+
+
+
+

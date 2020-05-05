@@ -70,7 +70,7 @@ class HeadquartersModule(object):
         while True:
             Utils.wait_update_screen(1)
 
-            if self.config.academy['enabled'] and counterAcademy < 2 and Utils.find("headquarters/academy_alert", 0.99):
+            if self.config.academy['enabled'] and counterAcademy < 1 and Utils.find("headquarters/academy_alert", 0.99):
                 Logger.log_msg("Found academy alert.")
                 # open academy
                 Utils.touch_randomly(self.region["academy_tab"])
@@ -84,7 +84,7 @@ class HeadquartersModule(object):
                 counterAcademy += 1
                 Logger.log_debug("Going back to main menu.")
                 continue
-            if self.config.dorm['enabled'] and counterDorm < 3 and Utils.find("headquarters/dorm_alert", 0.99):
+            if self.config.dorm['enabled'] and counterDorm < 1 and Utils.find("headquarters/dorm_alert", 0.99):
                 Logger.log_msg("Found dorm alert.")
                 # open the dorm
                 Utils.touch_randomly(self.region["dorm_tab"])

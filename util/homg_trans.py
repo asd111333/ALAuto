@@ -276,7 +276,7 @@ class HomographyTransform():
                 cv2.drawContours(crop_color_screen, [rect], -1, (255, 0, 0), 3)
 
         self.__match_boss(screen_trans, battle_map)
-        self.__match_character(screen_trans, battle_map)
+        #self.__match_character(screen_trans, battle_map)
         self.__match_mob_tile_scale(self.__color_screen, battle_map)
         self.__match_character_tile_scale(self.__color_screen, battle_map)
 

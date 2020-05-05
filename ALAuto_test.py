@@ -207,7 +207,6 @@ else:
     sys.exit()
 
 
-Utils.restart_handler()
 try:
     while True:
         Utils.update_screen()

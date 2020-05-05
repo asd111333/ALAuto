@@ -346,7 +346,7 @@ class CombatModule(object):
 
             if in_battle and Utils.find("combat/combat_pause", 0.7):
                 Logger.log_debug("In battle.")
-                Utils.script_sleep(2.5)
+                Utils.wait_till_stable(max_time=2)
                 continue
             if not items_received:
                 if Utils.find("combat/menu_touch2continue"):
@@ -357,7 +357,7 @@ class CombatModule(object):
                 if Utils.find("menu/item_found"):
                     Logger.log_debug("Combat ended: items received screen")
                     Utils.touch_randomly(self.region['tap_to_continue'])
-                    Utils.script_sleep(1)
+                    Utils.wait_till_stable(max_time=1)
                     continue
                 if (not locked_ship) and Utils.find("combat/alert_lock"):
                     Logger.log_msg("Locking received ship.")
@@ -367,22 +367,22 @@ class CombatModule(object):
                 if Utils.find("menu/drop_elite"):
                     Logger.log_msg("Received ELITE ship as drop.")
                     Utils.touch_randomly(self.region['dismiss_ship_drop'])
-                    Utils.script_sleep(2)
+                    Utils.wait_till_stable(max_time=2)
                     continue
                 elif Utils.find("menu/drop_rare"):
                     Logger.log_msg("Received new RARE ship as drop.")
                     Utils.touch_randomly(self.region['dismiss_ship_drop'])
-                    Utils.script_sleep(2)
+                    Utils.wait_till_stable(max_time=2)
                     continue                
                 elif Utils.find("menu/drop_ssr"):
                     Logger.log_msg("Received SSR ship as drop.")
                     Utils.touch_randomly(self.region['dismiss_ship_drop'])
-                    Utils.script_sleep(2)
+                    Utils.wait_till_stable(max_time=2)
                     continue
                 elif Utils.find("menu/drop_common"):
                     Logger.log_msg("Received new COMMON ship as drop.")
                     Utils.touch_randomly(self.region['dismiss_ship_drop'])
-                    Utils.script_sleep(2)
+                    Utils.wait_till_stable(max_time=2)
                     continue
             if not in_battle:
                 if (not confirmed_fight) and Utils.find("combat/button_confirm"):
@@ -392,7 +392,8 @@ class CombatModule(object):
                     Utils.touch_randomly(self.region["combat_end_confirm"])
                     if boss:
                         return True
-                    Utils.wait_update_screen(3)
+                    Utils.wait_till_stable(max_time=3.0)
+                    #Utils.wait_update_screen(3)
                     self.store_screen_to_homg()
                 if (not confirmed_fight) and Utils.find("combat/commander"):
                     items_received = True
@@ -402,19 +403,22 @@ class CombatModule(object):
                 if defeat and not confirmed_fleet_switch:
                     if Utils.find("combat/alert_unable_battle"):
                         Utils.touch_randomly(self.region['close_info_dialog'])
-                        Utils.script_sleep(3)
+                        Utils.wait_till_stable(max_time=3.0)
+                        #Utils.script_sleep(3)
                         self.exit = 5
                         return False
                     if Utils.find("combat/alert_fleet_cannot_be_formed"):
                         # fleet will be automatically switched
                         Utils.touch_randomly(self.region['close_info_dialog'])
                         confirmed_fleet_switch = True
-                        Utils.script_sleep(3)
+                        Utils.wait_till_stable(max_time=3.0)
+                        #Utils.script_sleep(3)
                         continue
                     else:
                         # flagship sunk, but part of backline still remains
                         # proceed to retreat
-                        Utils.script_sleep(3)
+                        Utils.wait_till_stable(max_time=3.0)
+                        #Utils.script_sleep(3)
                         self.exit = 5
                         return False
                 if confirmed_fight and Utils.find("menu/button_confirm"):
@@ -430,13 +434,16 @@ class CombatModule(object):
                         # fleet won the fight
                         self.combats_done += 1
                         self.kills_count += 1
+                        """
                         if self.kills_count >= self.kills_before_boss[self.chapter_map]:
                             Utils.script_sleep(2.5)
+                        """
                         return True
                 if confirmed_fight and Utils.find_and_touch("combat/defeat_close_button"):
                     Logger.log_debug("Fleet was defeated.")
                     defeat = True
-                    Utils.script_sleep(3)
+                    Utils.wait_till_stable(max_time=3.0)
+                    #Utils.script_sleep(3)
 
     def movement_handler(self, target_info):
         """
@@ -476,7 +483,7 @@ class CombatModule(object):
             elif Utils.find("combat/button_evade"):
                 Logger.log_msg("Ambush was found, trying to evade.")
                 Utils.touch_randomly(self.region["combat_ambush_evade"])
-                Utils.script_sleep(0.5)
+                Utils.wait_till_stable(max_time=0.5)
                 continue
             elif Utils.find("combat/alert_failed_evade"):
                 Logger.log_warning("Failed to evade ambush.")
@@ -493,11 +500,11 @@ class CombatModule(object):
                 Logger.log_msg("Item found on node.")
                 Utils.touch_randomly(self.region['tap_to_continue'])
                 if Utils.find("combat/menu_emergency"):
-                    Utils.wait_update_screen(1)
+                    Utils.wait_till_stable(max_time=1)
                     self.store_screen_to_homg()
                     if not Utils.find("combat/strategy"):
                         Utils.touch_randomly(self.region["close_strategy_menu"])
-                        Utils.script_sleep(2)
+                        Utils.wait_till_stable(max_time=2)
                 return 0
             if Utils.find("combat/menu_loading"):
                 return 1
@@ -544,7 +551,7 @@ class CombatModule(object):
         """ Clears map.
         """
         Logger.log_msg("Started map clear.")
-        Utils.script_sleep(2.5)
+        Utils.wait_till_stable(max_time=2.5)
 
         while Utils.find("combat/fleet_lock", 0.99):
             Utils.touch_randomly(self.region["fleet_lock"])
@@ -600,7 +607,7 @@ class CombatModule(object):
 
             if not Utils.find("combat/strategy"):
                 Utils.touch_randomly(self.region["close_strategy_menu"])
-                Utils.script_sleep(2)
+                Utils.wait_till_stable(max_time=2)
 
             if Utils.find("combat/menu_loading"):
                 self.battle_handler()
@@ -770,11 +777,11 @@ class CombatModule(object):
             if target_coord is not None:
                 ret = self.movement_handler(target_coord)
                 if ret == 0:
-                    Utils.script_sleep(1)
+                    Utils.wait_till_stable(max_time=4.0)
                     return True, target_index
                 elif ret > 0:
                     if self.battle_handler():
-                        Utils.script_sleep(1)
+                        Utils.wait_till_stable(min_time=1.0, max_time=4.0)
                         return True, target_index
         return False, None
 
@@ -817,7 +824,7 @@ class CombatModule(object):
                 self.homg.map_index_to_coord(target_index))
             if self.movement_handler(target_info) == -2:
                 return True
-            Utils.script_sleep(1)
+            Utils.wait_till_stable(max_time=1.0)
         return False
 
     def switch_fleet(self, fleet_number):
@@ -826,7 +833,7 @@ class CombatModule(object):
         while self.get_fleet_number() != fleet_number:
             self.last_visited_idx = None
             Utils.touch_randomly(self.region['button_switch_fleet'])
-            Utils.wait_update_screen(2)
+            Utils.wait_till_stable(max_time=2.0)
             self.store_screen_to_homg()
         return True
 
@@ -973,7 +980,7 @@ class CombatModule(object):
 
         if self.movement_handler([boss_region.x, boss_region.y]) > 0:
             if self.battle_handler(boss=True):
-                Utils.script_sleep(2)
+                Utils.wait_till_stable(max_time=2.0)
                 return 1
 
         Utils.swipe(boss_region.x, boss_region.y, 960, 640, 300)
@@ -1002,7 +1009,7 @@ class CombatModule(object):
 
             if ret > 0:
                 if self.battle_handler(boss=True):
-                    Utils.script_sleep(2)
+                    Utils.wait_till_stable(max_time=2.0)
                     self.exit = 1
                     return 1
             elif ret == 0:
@@ -1017,7 +1024,7 @@ class CombatModule(object):
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
-                            Utils.script_sleep(1)
+                            Utils.wait_till_stable(max_time=1.0)
                             break
                     else:
                         Utils.wait_update_screen(1)
