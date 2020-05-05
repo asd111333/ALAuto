@@ -202,6 +202,9 @@ if adb.init():
         sys.exit()
 
     Utils.assets = config.assets['server']
+
+    # screencap init
+    Utils.init_screencap_mode(config.screenshot['mode'])
 else:
     Logger.log_error('Unable to connect to the service.')
     sys.exit()
