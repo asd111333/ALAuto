@@ -440,7 +440,7 @@ class Utils(object):
         return
 
     @classmethod
-    def find(cls, image, similarity=DEFAULT_SIMILARITY, color=False):
+    def find(cls, image, similarity=DEFAULT_SIMILARITY, color=False, bright_text=False):
         """Finds the specified image on the screen
 
         Args:
@@ -448,17 +448,41 @@ class Utils(object):
             similarity (float, optional): Defaults to DEFAULT_SIMILARITY.
                 Percentage in similarity that the image should at least match.
             color (boolean): find the image in color screen
+            bright_text (boolean): find the image after edge detection
 
         Returns:
             Region: region object containing the location and size of the image
+
         """
         if color:
             template = cv2.imread('assets/{}/{}.png'.format(cls.assets, image), cv2.IMREAD_COLOR)
-            match = cv2.matchTemplate(cls.color_screen, template, cv2.TM_CCOEFF_NORMED)
+            screen = cls.color_screen
         else:
             template = cv2.imread('assets/{}/{}.png'.format(cls.assets, image), 0)
-            match = cv2.matchTemplate(cls.screen, template, cv2.TM_CCOEFF_NORMED)
+            screen = cls.screen
 
+        if bright_text:
+            """
+            template = cv2.Canny(template, 100, 200)
+            cv2.imshow("temp",template)
+            screen = cv2.Canny(screen, 100, 200)
+            cv2.imshow("screen", screen)
+            cv2.waitKey(0)
+            """
+            if len(screen.shape) > 2:
+                screen = cv2.cvtColor(screen, cv2.COLOR_BGR2HSV)
+                template = cv2.cvtColor(template, cv2.COLOR_BGR2HSV)
+                lower = numpy.array([0,0,200])
+                upper = numpy.array([0,0,255])
+            else:
+                lower = numpy.array([200])
+                upper = numpy.array([255])
+
+            screen = cv2.inRange(screen, lower, upper)
+            template = cv2.inRange(template, lower, upper)
+
+
+        match = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
         height, width = template.shape[:2]
         value, location = cv2.minMaxLoc(match)[1], cv2.minMaxLoc(match)[3]
         if value >= similarity:
@@ -669,7 +693,7 @@ class Utils(object):
         coordinates via ADB
 
         Args:
-            coords (array): An array containing the x and y coordinate of
+            coords (list): An list containing the x and y coordinate of
                 where to touch the screen
         """
         Adb.shell("input swipe {} {} {} {} {}".format(coords[0], coords[1], coords[0], coords[1], randint(50, 120)))
@@ -901,6 +925,9 @@ class Utils(object):
                 cls.touch_randomly(button_confirm_coord)
             elif login_coord:
                 cls.touch_randomly(Region(1540, 770, 360, 60))
+                cls.wait_till_stable(min_time=2.0,max_time=4.0)
+            else:
+                cls.touch_randomly(Region(1820, 30, 40, 40))
             cls.wait_update_screen(1)
         return
 
@@ -912,6 +939,12 @@ class Utils(object):
         Adb.shell(stop_args)
         Utils.script_sleep(1)
         Adb.shell(start_args)
+
+    @classmethod
+    def kill_game(cls):
+        package_name = 'com.YoStarEN.AzurLane'
+        stop_args = 'am force-stop {}'.format(package_name)
+        Adb.shell(stop_args)
 
     @classmethod
     def restart_handler(cls):

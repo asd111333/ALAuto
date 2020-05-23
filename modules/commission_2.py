@@ -5,6 +5,7 @@ from util.config import Config
 import cv2
 import pytesseract
 import numpy as np
+from datetime import datetime, timedelta
 import os
 
 
@@ -49,6 +50,7 @@ class CommissionModule:
         item_found = "menu/item_found"
         button_confirm = "menu/button_confirm"
         sidebar = "menu/sidebar"
+        req_not_match = 'commission/req_not_match'
 
     def __init__(self, config, stats):
         """Initializes the Expedition module.
@@ -109,20 +111,21 @@ class CommissionModule:
         if completed_region:
             Logger.log_debug("Found commission complete button.")
             self.completed_handler()
-        Utils.update_screen()
 
         failed = True
 
         for i in range(retry_max):
+            Utils.update_screen()
             alert_region = self.detect_in_side_bar(self.ImageFileName.alert_available, 0.9)
             if alert_region:
                 Logger.log_debug("Found commission available indicator.")
                 Utils.touch_randomly(self.ObjectRegion.button_go)
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.commission_title):
                 failed = False
                 break
-            Utils.update_screen()
+            else:
+                Utils.script_sleep(1)
 
         if failed:
             Logger.log_msg("All commissions are running.")
@@ -133,7 +136,7 @@ class CommissionModule:
         if self.click_urgent():
             Logger.log_msg("Moved to urgent tab.")
         else:
-            Logger.log_msg("Unable to move to urgent tab.")
+            Logger.log_msg("Failed to move to urgent tab.")
             return False
 
         rank = 0
@@ -185,7 +188,7 @@ class CommissionModule:
             if go_region or completed_region:
                 failed = False
                 break
-            Utils.wait_update_screen(1)
+            Utils.wait_till_stable()
 
         if failed:
             Logger.log_msg("Cannot move back to main menu sidebar.")
@@ -203,7 +206,7 @@ class CommissionModule:
 
         for i in range(retry_max):
             Utils.touch_randomly(self.ObjectRegion.left_menu)
-            Utils.wait_update_screen(1)
+            Utils.wait_till_stable()
             if self.detect_in_side_bar(self.ImageFileName.sidebar):
                 failed = False
                 break
@@ -218,71 +221,43 @@ class CommissionModule:
     def close_sidebar(self):
         retry_max = 5
 
-        failed = True
-
         for i in range(retry_max):
             sidebar = self.detect_in_side_bar(self.ImageFileName.sidebar)
             if sidebar:
                 Utils.touch_randomly(self.ObjectRegion.dismiss_side_tab)
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.button_battle):
-                failed = False
                 break
-            Utils.wait_update_screen(1)
-
-        if failed:
+            Utils.update_screen()
+        else:
             Logger.log_msg("Cannot close sidebar.")
             return False
-        else:
-            Logger.log_msg("Sidebar closed.")
-            return True
+
+        Logger.log_msg("Sidebar closed.")
+        return True
+
 
     def completed_handler(self):
 
         completed_region = self.detect_in_side_bar(self.ImageFileName.button_completed)
         while completed_region:
             Utils.touch_randomly(completed_region)
-            Utils.wait_update_screen(1)
+            Utils.wait_till_stable()
             completed_region = self.detect_in_side_bar(self.ImageFileName.button_completed)
 
-        retry_counter = 0
-        retry_max = 5
+        start_time = datetime.now()
 
-        while retry_max > retry_counter:
+        while datetime.now() - start_time < timedelta(seconds=3):
             Utils.update_screen()
             if Utils.find(self.ImageFileName.alert_perfect):
                 Utils.touch_randomly(self.ObjectRegion.tap_to_continue)
                 self.stats.increment_commissions_received()
+                start_time = datetime.now()
             elif Utils.find(self.ImageFileName.item_found):
                 Utils.touch_randomly(self.ObjectRegion.tap_to_continue)
-                Utils.script_sleep(1)
-            elif self.detect_in_side_bar(self.ImageFileName.alert_available, 0.9):
-                Logger.log_debug("Finished completing commissions.")
-                Utils.script_sleep(0.5)
-                break
-            else:
-                retry_counter += 1
-                Utils.script_sleep(1)
+                start_time = datetime.now()
+        Logger.log_debug("Finished completing commissions.")
         return
-
-    def get_all_commissions_info(self):
-        ret_list = []
-        item_coords = {}
-
-        Utils.swipe(960, 680, 960, 400, 300)
-        Utils.wait_update_screen(2)
-        commissions_coord = Utils.find_all(self.ImageFileName.status_idle)
-        item_coords['cubes'] = Utils.find_all("commission/cubes")
-        item_coords['oil'] = Utils.find_all("commission/oil")
-        for com in commissions_coord:
-            rewards = {"oil": False, "cubes": False}
-            for name, locations in item_coords:
-                for loc in locations:
-                    if com[0] < loc[0] < com[0] + 1250 and com[1] - 105 < loc[1] < com[1] + 75:
-                        rewards[name] = True
-                        break
-            ret_list.append((com[0], com[1], rewards))
-        return ret_list
 
     def click_nth_commission(self, rank):
         retry = 5
@@ -296,7 +271,7 @@ class CommissionModule:
             y = avail_commissions[-(rank + 1)][1]
             offset = 10
             Utils.touch_randomly(Region(x - offset, y - offset, 2 * offset, 2 * offset))
-            Utils.wait_update_screen(1)
+            Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.button_recommend):
                 return True
         return False
@@ -308,7 +283,7 @@ class CommissionModule:
         retry_max = 5
         for i in range(retry_max):
             if Utils.find_and_touch(self.ImageFileName.button_urgent_normal):
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.button_urgent_clicked):
                 return True
             Utils.update_screen()
@@ -318,7 +293,7 @@ class CommissionModule:
         retry_max = 5
         for i in range(retry_max):
             if Utils.find_and_touch(self.ImageFileName.button_daily_normal):
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.button_daily_clicked):
                 return True
             Utils.update_screen()
@@ -332,18 +307,18 @@ class CommissionModule:
         for i in range(retry_max):
             if Utils.find(self.ImageFileName.button_recommend):
                 Logger.log_debug("Found commission recommend button.")
-                Logger.log_debug("The " + str(int(i)) + " attempt.")
+                Logger.log_debug('Retry count: {}'.format(str(i)))
                 try:
                     oil_required = self.read_oil(1670, 439, 53, 30)
-                    Logger.log_msg("Found commission required oil: " + str(oil_required) + ".")
+                    Logger.log_msg("Found commission oil consumption: " + str(oil_required) + ".")
                 except ValueError as verr:
-                    Logger.log_msg("Cannot read commission required oil, starting it anyway.")
+                    Logger.log_msg("Cannot read commission oil consumption. Start it anyway.")
                     oil_required = -1
                 if oil_required > 99:
-                    Logger.log_msg("Exceed oil consumption limit")
+                    Logger.log_msg("Oil consumption limit exceeded")
                     break
                 Utils.touch_randomly(self.ObjectRegion.commission_recommend)
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
             if Utils.find(self.ImageFileName.button_ready):
                 failed = False
                 break
@@ -358,12 +333,19 @@ class CommissionModule:
             if Utils.find(self.ImageFileName.button_ready):
                 Logger.log_debug("Found commission start button.")
                 Utils.touch_randomly(self.ObjectRegion.commission_start)
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
+
+            if Utils.find(self.ImageFileName.req_not_match):
+                failed = True
+                break
+
             oil_warning = Utils.find(self.ImageFileName.button_confirm)
             commission_begun = Utils.find(self.ImageFileName.alert_begun)
+
             if oil_warning or commission_begun:
                 failed = False
                 break
+
             Utils.update_screen()
 
         if failed:
@@ -376,7 +358,7 @@ class CommissionModule:
             if oil_warning:
                 Logger.log_debug("Found commission oil warning message.")
                 Utils.touch_randomly(self.ObjectRegion.oil_warning)
-                Utils.wait_update_screen(1)
+                Utils.wait_till_stable()
                 commission_begun = Utils.find(self.ImageFileName.alert_begun)
             if commission_begun:
                 Logger.log_msg("Successfully started commission.")
@@ -406,3 +388,7 @@ class CommissionModule:
                                  borderType=cv2.BORDER_CONSTANT, value=255)
         cv2.imwrite('tesseract_input.png', img)
         return int(pytesseract.image_to_string(img, config=self.__tesseract_config))
+
+
+    def time_out_retry(self,min_try = 5, min_time = timedelta(2.0)):
+        return True

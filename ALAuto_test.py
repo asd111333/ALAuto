@@ -117,6 +117,7 @@ class ALAuto(object):
         """
         if self.modules['commissions']:
             self.modules['commissions'].commission_logic_wrapper()
+            Utils.menu_navigate()
 
     def run_enhancement_cycle(self):
         """Method to run the enhancement cycle.
@@ -209,7 +210,7 @@ else:
     Logger.log_error('Unable to connect to the service.')
     sys.exit()
 
-
+#Utils.restart_handler()
 try:
     while True:
         Utils.update_screen()
@@ -218,18 +219,21 @@ try:
             func_timeout(300,Utils.menu_navigate)
             func_timeout(600,script.run_commission_cycle)
             script.print_cycle_stats()
+
             if Utils.find("mission/alert_completed"):
                 func_timeout(600, script.run_mission_cycle)
-            if Utils.find("headquarters/hq_alert"):
-                func_timeout(600, script.run_hq_cycle)
-            if Utils.find("research/lab_alert"):
-                func_timeout(600, script.run_research_cycle)
+
+            func_timeout(600, script.run_hq_cycle)
+            func_timeout(600, script.run_research_cycle)
+
             if script.should_sortie():
                 func_timeout(1800, script.run_sortie_cycle)
                 script.print_cycle_stats()
             else:
                 Logger.log_msg("Nothing to do, will check again in a few minutes.")
-                Utils.script_sleep(300)
+                Utils.kill_game()
+                Utils.script_sleep(600)
+                Utils.restart_handler()
                 continue
         except FunctionTimedOut:
             Utils.restart_handler()

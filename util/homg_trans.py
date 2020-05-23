@@ -19,27 +19,33 @@ class HomographyTransform():
         self.__inv_h_trans_m = None
         self.__h_trans_screen_size = None
         self.__small_boss_icon = False
+        self.__debug_enabled = False
+        self.__debug_out_func = None
 
         self.__free_tile_center_img = cv2.imread(trans_consts.FREE_TILE_CENTER_IMG, cv2.IMREAD_GRAYSCALE)
         self.__free_tile_imgs = [cv2.imread(trans_consts.FREE_TILES_IMG_UP, cv2.IMREAD_GRAYSCALE),
                                  cv2.imread(trans_consts.FREE_TILES_IMG_DOWN, cv2.IMREAD_GRAYSCALE),
                                  cv2.imread(trans_consts.FREE_TILES_IMG_LEFT, cv2.IMREAD_GRAYSCALE),
                                  cv2.imread(trans_consts.FREE_TILES_IMG_RIGHT, cv2.IMREAD_GRAYSCALE)]
-        self.__trans_boss_img = cv2.imread(trans_consts.TRANS_BOSS_IMG)
-        self.__trans_small_boss_img = cv2.imread(trans_consts.TRANS_SMALL_BOSS_IMG, cv2.IMREAD_COLOR)
-        self.__trans_arrow_img = cv2.imread(trans_consts.TRANS_ARROW_IMG, cv2.IMREAD_COLOR)
+
+        self.__free_tile_lu = cv2.imread(trans_consts.FREE_TILES_LU_IMG, cv2.IMREAD_GRAYSCALE)
         self.__arrow_img = cv2.imread(trans_consts.ARROW_IMG, cv2.IMREAD_COLOR)
         self.__enemy1_img = cv2.imread(trans_consts.ENEMY_1_IMG, cv2.IMREAD_COLOR)
         self.__enemy2_img = cv2.imread(trans_consts.ENEMY_2_IMG, cv2.IMREAD_COLOR)
         self.__enemy3_img = cv2.imread(trans_consts.ENEMY_3_IMG, cv2.IMREAD_COLOR)
+        self.__boss_img = cv2.imread(trans_consts.BOSS_IMG, cv2.IMREAD_COLOR)
 
-    def init_homg_vars(self):
+    def init_homg_vars(self,custom_trans_pts=None):
         """
         Initialize the variables used in this class.
         Must be executed once before executing any other functions.
         """
-        src_pts = np.subtract(trans_consts.TRANS_SRC_PTS, trans_consts.MAP_CROP_TOP_LEFT)
-        dst_pts = np.subtract(trans_consts.TRANS_DST_PTS, trans_consts.MAP_CROP_TOP_LEFT)
+        if custom_trans_pts is None:
+            src_pts = np.subtract(trans_consts.TRANS_SRC_PTS, trans_consts.MAP_CROP_TOP_LEFT)
+            dst_pts = np.subtract(trans_consts.TRANS_DST_PTS, trans_consts.MAP_CROP_TOP_LEFT)
+        else:
+            src_pts = np.subtract(custom_trans_pts[0], trans_consts.MAP_CROP_TOP_LEFT)
+            dst_pts = np.subtract(custom_trans_pts[1], trans_consts.MAP_CROP_TOP_LEFT)
 
         # Calculate Homography
         h, status = cv2.findHomography(src_pts, dst_pts)
@@ -82,6 +88,14 @@ class HomographyTransform():
         :return:
         """
         self.__small_boss_icon = val
+        
+    def enable_debug_log(self, enable, debug_out_func):
+        if enable and debug_out_func is None:
+            return False
+        self.__debug_enabled = enable
+        if self.__debug_enabled:
+            self.__debug_out_func = debug_out_func
+        return True
 
     def load_color_screen(self, color_screen):
         """
@@ -112,7 +126,8 @@ class HomographyTransform():
         screen_edge_closed = cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE, kernel)
         res = cv2.matchTemplate(screen_edge_closed, free_tile_center, cv2.TM_CCOEFF_NORMED)
         max_similarity = np.max(res)
-        print("free tile center", max_similarity)
+        if self.__debug_enabled:
+            self.__debug_out_func("free tile center", max_similarity)
         if max_similarity > trans_consts.FREE_TILE_MATCH_THRESH:
             loc = np.where(res == max_similarity)
             point = list(zip(*loc[::-1]))
@@ -197,37 +212,43 @@ class HomographyTransform():
         screen_trans = cv2.warpPerspective(crop_color_screen, self.__h_trans_m, self.__h_trans_screen_size)
         screen_edge = cv2.Canny(screen_trans, trans_consts.CV_CANNY_MIN, trans_consts.CV_CANNY_MAX)
 
-        closing_kernel = trans_consts.CLOSING_KERNEL_MIN_SIZE
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (closing_kernel, closing_kernel))
-        screen_edge_closed = cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE, kernel)
+        sea_map = np.zeros(shape=(self.__row_max_idx, self.__col_max_idx))
 
-        x_max_index = self.__col_max_idx
-        y_max_index = self.__row_max_idx
+        free_tile_lu_scaled = cv2.resize(self.__free_tile_lu,
+                                         (self.__free_tile_lu.shape[1] * 2, self.__free_tile_lu.shape[0] * 2)).astype(
+            np.uint8)
 
-        battle_map = np.zeros(shape=(y_max_index, x_max_index))
-
-        for i in range(x_max_index):
-            for j in range(y_max_index):
+        for j in range(self.__row_max_idx):
+            for i in range(self.__col_max_idx):
                 cur_x = self.__top_left_tile_x + i * trans_consts.TILE_WIDTH
                 cur_y = self.__top_left_tile_y + j * trans_consts.TILE_HEIGHT
-                crop = screen_edge_closed[cur_y: cur_y + trans_consts.TILE_HEIGHT,
+                crop = screen_edge[cur_y: cur_y + trans_consts.TILE_HEIGHT,
                        cur_x:cur_x + trans_consts.TILE_WIDTH]
                 # Get the coordinate of the center of a tile in the original space
-                # For debugging only
-                dot = np.array(
-                    [[[cur_x + trans_consts.TILE_WIDTH / 2, cur_y + trans_consts.TILE_HEIGHT / 2]]])
-                dot = cv2.perspectiveTransform(dot, self.__inv_h_trans_m)
-                dot = dot.astype(int)
+
+                crop_closed = crop
+                corner_w = int(0.2 * trans_consts.TILE_WIDTH)
+                corner_h = int(0.2 * trans_consts.TILE_HEIGHT)
+
+                corners = list()
+                corners.append(crop_closed[:corner_h, :corner_w])
+                corners.append(crop_closed[:corner_h, -1:-corner_w:-1])
+                corners.append(crop_closed[-1:-corner_h:-1, :corner_w])
+                corners.append(crop_closed[-1:-corner_h:-1, -1:-corner_w:-1])
+
                 counter = 0
-                for safe_tile in free_tile_imgs:
-                    if crop.shape[0] >= safe_tile.shape[0] and crop.shape[1] >= safe_tile.shape[1]:
-                        res = cv2.matchTemplate(crop, safe_tile, cv2.TM_CCOEFF_NORMED)
+                for corner in corners:
+                    if corner.shape[0] >= self.__free_tile_lu.shape[0] and corner.shape[1] >= self.__free_tile_lu.shape[
+                        1]:
+                        corner = cv2.resize(corner, (corner.shape[1] * 2, corner.shape[0] * 2)).astype(np.uint8)
+                        corner = cv2.morphologyEx(corner, cv2.MORPH_CLOSE,
+                                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+                        res = cv2.matchTemplate(corner, free_tile_lu_scaled, cv2.TM_CCOEFF_NORMED)
                         if np.count_nonzero(res >= trans_consts.FREE_TILE_MATCH_THRESH) > 0:
                             counter += 1
-                if counter >= 1:
-                    battle_map[j, i] = trans_consts.MAP_FREE
-                    # For debugging only
-                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 0), thickness=3)
+                    if counter > 1:
+                        sea_map[j, i] = trans_consts.MAP_FREE
+                        break
 
                 # crop the perspective transformed color screen
                 color_crop = screen_trans[cur_y: cur_y + trans_consts.TILE_HEIGHT,
@@ -251,19 +272,29 @@ class HomographyTransform():
                 red_hsv_color_mask = cv2.inRange(hsv_crop, lower_red, upper_red)
                 yellow_hsv_color_mask = cv2.inRange(hsv_crop, lower_yellow, upper_yellow)
                 if np.count_nonzero(red_hsv_color_mask) > trans_consts.BOUNDARY_RED_COUNT_THRESH:
-                    battle_map[j, i] = trans_consts.MAP_ENEMY
-                    # for debugging
-                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 0, 255), thickness=3)
-
+                    sea_map[j, i] = trans_consts.MAP_ENEMY
                 elif np.count_nonzero(yellow_hsv_color_mask) > trans_consts.BOUNDARY_YELLOW_COUNT_THRESH:
-                    battle_map[j, i] = trans_consts.MAP_SUPPLY
-                    #  for debugging
-                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 255), thickness=3)
+                    sea_map[j, i] = trans_consts.MAP_SUPPLY
 
-        # Draw the boundary of the tile on the original screen.
-        # for debugging
-        for i in range(x_max_index):
-            for j in range(y_max_index):
+        self.__match_mob_tile_scale(self.__color_screen, sea_map)
+        self.__match_character_tile_scale(self.__color_screen, sea_map)
+        self.__match_boss_tile_scale(self.__color_screen, sea_map)
+
+        if self.__debug_enabled:
+            self.debug_output(sea_map)
+            self.__debug_out_func('Read Map:\n{}'.format(np.array2string(sea_map)))
+
+        return sea_map
+
+    def debug_output(self, sea_map):
+        crop_color_screen = self.__color_screen[:][
+                            trans_consts.MAP_CROP_TOP_LEFT[1]:trans_consts.MAP_CROP_BOTTOM_RIGHT[1],
+                            trans_consts.MAP_CROP_TOP_LEFT[0]:trans_consts.MAP_CROP_BOTTOM_RIGHT[0]]
+        screen_trans = cv2.warpPerspective(crop_color_screen, self.__h_trans_m, self.__h_trans_screen_size)
+        screen_edge = cv2.Canny(screen_trans, trans_consts.CV_CANNY_MIN, trans_consts.CV_CANNY_MAX)
+
+        for i in range(self.__col_max_idx):
+            for j in range(self.__row_max_idx):
                 cur_x = self.__top_left_tile_x + i * trans_consts.TILE_WIDTH
                 cur_y = self.__top_left_tile_y + j * trans_consts.TILE_HEIGHT
                 rect = np.array(
@@ -275,80 +306,35 @@ class HomographyTransform():
                 rect = rect.astype(int)
                 cv2.drawContours(crop_color_screen, [rect], -1, (255, 0, 0), 3)
 
-        self.__match_boss(screen_trans, battle_map)
-        #self.__match_character(screen_trans, battle_map)
-        self.__match_mob_tile_scale(self.__color_screen, battle_map)
-        self.__match_character_tile_scale(self.__color_screen, battle_map)
+                dot = np.array(
+                    [[[cur_x + trans_consts.TILE_WIDTH / 2, cur_y + trans_consts.TILE_HEIGHT / 2]]])
+                dot = cv2.perspectiveTransform(dot, self.__inv_h_trans_m)
+                dot = dot.astype(int)
 
-        # for debugging
+                if sea_map[j, i] == trans_consts.MAP_CHARACTER:
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (255, 0, 255), thickness=3)
+                if sea_map[j, i] == trans_consts.MAP_FREE:
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 0), thickness=3)
+                if sea_map[j, i] == trans_consts.MAP_SUPPLY:
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 255), thickness=3)
+                if sea_map[j, i] == trans_consts.MAP_ENEMY:
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 0, 255), thickness=3)
+
         cv2.imwrite("debug_color_trans.png", screen_trans)
-        cv2.imwrite("debug_edge.png", screen_edge_closed)
+        cv2.imwrite("debug_edge.png", cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE,
+                                                       cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (
+                                                       trans_consts.CLOSING_KERNEL_MIN_SIZE,
+                                                       trans_consts.CLOSING_KERNEL_MIN_SIZE))))
         cv2.imwrite("debug_color.png", crop_color_screen)
-        print(battle_map)
 
-        return battle_map
 
-    def __match_boss(self, screen_trans, battle_map):
-        """
-        Find the tile where the boss is located.
-        Result will write into the corresponded tile in battle_map.
-        Dependencies: init_map_coordinate
-        :param screen_trans: the color screen to find the boss icon
-        :param battle_map: M x N numpy array
-        :return:
-        """
-        if self.__small_boss_icon:
-            boss = self.__trans_small_boss_img
-        else:
-            boss = self.__trans_boss_img
-        res = cv2.matchTemplate(screen_trans, boss, cv2.TM_CCOEFF_NORMED)
-        max_similarity = np.max(res)
-
-        print("boss", max_similarity)
-
-        if max_similarity > trans_consts.BOSS_MATCH_THRESH:
-            loc = np.where(res == max_similarity)
-            point = list(zip(*loc[::-1]))
-            if len(point) > 0:
-                # Calculate x and y of the tile where the boos is
-                row, col = self.coord_to_map_index(
-                    (point[0][0], point[0][1]))
-                if 0 <= col < self.__col_max_idx and 0 <= row < self.__row_max_idx:
-                    battle_map[row, col] = trans_consts.MAP_BOSS
-
-    def __match_character(self, screen_trans, battle_map):
-        """
-        Find the tile where the character is located.
-        Result will write into the corresponded tile in battle_map.
-        Dependencies: init_map_coordinate
-        :param screen_trans: the color screen to find the arrow of the character
-        :param battle_map: M x N numpy array
-        :return:
-        """
-        arrow = self.__trans_arrow_img
-        res = cv2.matchTemplate(screen_trans, arrow, cv2.TM_CCOEFF_NORMED)
-        max_similarity = np.max(res)
-
-        print("arrow", max_similarity)
-
-        if max_similarity > trans_consts.ARROW_MATCH_THRESH:
-            loc = np.where(res == max_similarity)
-            point = list(zip(*loc[::-1]))
-            if len(point) > 0:
-                # Calculate x and y of the tile where the character is
-                # add a y offset due to the arrow is above the character
-                row, col = self.coord_to_map_index(
-                    (point[0][0], point[0][1] + trans_consts.ARROW_CHARACTER_Y_OFFSET))
-                if 0 <= col < self.__col_max_idx and 0 <= row < self.__row_max_idx:
-                    battle_map[row, col] = trans_consts.MAP_CHARACTER
-
-    def __match_mob_tile_scale(self, screen, battle_map):
+    def __match_mob_tile_scale(self, screen, sea_map):
         """
         Find the tiles where the enemies are located.
-        Result will write into the corresponded tile in battle_map.
+        Result will write into the corresponded tile in sea_map.
         Dependencies: init_map_coordinate
         :param screen: the color screen to find the boss icon
-        :param battle_map: M x N numpy array
+        :param sea_map: M x N numpy array
         :return:
         """
 
@@ -379,25 +365,25 @@ class HomographyTransform():
                     res = cv2.matchTemplate(corp, e1_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        battle_map[i, j] = trans_consts.MAP_ENEMY
+                        sea_map[i, j] = trans_consts.MAP_ENEMY
                 if corp.shape[0] >= e2_scaled.shape[0] and corp.shape[1] >= e2_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e2_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        battle_map[i, j] = trans_consts.MAP_ENEMY
+                        sea_map[i, j] = trans_consts.MAP_ENEMY
                 if corp.shape[0] >= e3_scaled.shape[0] and corp.shape[1] >= e3_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e3_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        battle_map[i, j] = trans_consts.MAP_ENEMY
+                        sea_map[i, j] = trans_consts.MAP_ENEMY
 
-    def __match_character_tile_scale(self, screen, battle_map):
+    def __match_character_tile_scale(self, screen, sea_map):
         """
         Find the tile where the character is located.
-        Result will write into the corresponded tile in battle_map.
+        Result will write into the corresponded tile in sea_map.
         Dependencies: init_map_coordinate
         :param screen: the color screen to find the boss icon
-        :param battle_map: M x N numpy array
+        :param sea_map: M x N numpy array
         :return:
         """
 
@@ -427,7 +413,45 @@ class HomographyTransform():
                     res = cv2.matchTemplate(corp, arrow, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ARROW_MATCH_THRESH:
-                        battle_map[i, j] = trans_consts.MAP_CHARACTER
+                        sea_map[i, j] = trans_consts.MAP_CHARACTER
+
+    def __match_boss_tile_scale(self, screen, sea_map):
+        """
+        Find the tile where the character is located.
+        Result will write into the corresponded tile in sea_map.
+        Dependencies: init_map_coordinate
+        :param screen: the color screen to find the boss icon
+        :param sea_map: M x N numpy array
+        :return:
+        """
+
+        scaling_base = trans_consts.SCALING_BASE
+
+        if self.__row_max_idx < 2:
+            return
+
+        for i in range(self.__row_max_idx):
+            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
+            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
+            dist = np.linalg.norm(p1 - p2, ord=2)
+            scale = dist / scaling_base
+            boss = cv2.resize(self.__boss_img, None, fx=scale, fy=scale)
+            for j in range(self.__col_max_idx):
+                cur_x = self.__top_left_tile_x + j * trans_consts.TILE_WIDTH
+                cur_y = self.__top_left_tile_y + i * trans_consts.TILE_HEIGHT
+                rect = np.array(
+                    [[self.inv_transform_coord([cur_x, cur_y])],
+                     [self.inv_transform_coord([cur_x + trans_consts.TILE_WIDTH, cur_y])],
+                     [self.inv_transform_coord([cur_x + trans_consts.TILE_WIDTH, cur_y + trans_consts.TILE_HEIGHT])],
+                     [self.inv_transform_coord([cur_x, cur_y + trans_consts.TILE_HEIGHT])]],
+                    dtype=np.float32)
+                x, y, w, h = cv2.boundingRect(rect)
+                corp = screen[y:y + h, x:x + w, :]
+                if corp.shape[0] >= boss.shape[0] and corp.shape[1] >= boss.shape[1]:
+                    res = cv2.matchTemplate(corp, boss, cv2.TM_CCOEFF_NORMED)
+                    max_similarity = np.max(res)
+                    if max_similarity > trans_consts.SCALED_ARROW_MATCH_THRESH:
+                        sea_map[i, j] = trans_consts.MAP_BOSS
 
     def coord_to_map_index(self, coord):
         """
@@ -458,7 +482,7 @@ class HomographyTransform():
         :param coord: point in transformed space
         :return: point in the original space
         """
-        point = np.array([[coord]])
+        point = np.array([[coord]], dtype=np.float32)
         inv_persp_point = cv2.perspectiveTransform(point, self.__inv_h_trans_m)[0][0]
         inv_persp_point[0] += trans_consts.MAP_CROP_TOP_LEFT[0]
         inv_persp_point[1] += trans_consts.MAP_CROP_TOP_LEFT[1]
@@ -476,21 +500,21 @@ class HomographyTransform():
         persp_point = cv2.perspectiveTransform(point, self.__h_trans_m)[0][0]
         return persp_point
 
-    def bfs_search(self, battle_map, start_tile):
+    def bfs_search(self, sea_map, start_tile):
         """
-        Do a BFS search on battle_map starting from start_tile.
+        Do a BFS search on sea_map starting from start_tile.
         The object on start_tile will be ignored.
-        :param battle_map: map created by create_map()
+        :param sea_map: map created by create_map()
         :param start_tile: the index of the tile to start BFS
         :return: found_enemies and found_supplies, both sorted from the nearest to the farthest.
         """
 
-        if start_tile[0] < 0 or start_tile[0] >= battle_map.shape[0] or start_tile[1] < 0 or start_tile[1] >= \
-                battle_map.shape[1]:
+        if start_tile[0] < 0 or start_tile[0] >= sea_map.shape[0] or start_tile[1] < 0 or start_tile[1] >= \
+                sea_map.shape[1]:
             return [], []
 
-        pad_map = np.zeros(shape=(battle_map.shape[0] + 2, battle_map.shape[1] + 2))
-        pad_map[1:battle_map.shape[0] + 1, 1:battle_map.shape[1] + 1] = battle_map[:, :]
+        pad_map = np.zeros(shape=(sea_map.shape[0] + 2, sea_map.shape[1] + 2))
+        pad_map[1:sea_map.shape[0] + 1, 1:sea_map.shape[1] + 1] = sea_map[:, :]
         visited_map = np.zeros(shape=pad_map.shape)
         queue = []
         found_enemies = []

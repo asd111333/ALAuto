@@ -38,9 +38,9 @@ class CombatModule(object):
         self.sea_map = None
         self.boss_defeated = False
 
-        self.mob_fleet_no = None
-        self.boss_fleet_no = None
-        self.switch_fleet_after_combats = None
+        self.mob_fleet_no = config.combat['mob_fleet_no']
+        self.boss_fleet_no = config.combat['boss_fleet_no']
+        self.switch_fleet_after_combats = config.combat['switch_fleet_after_combat']
 
         self.force_fleet_no = None
         self.last_visited_idx = None
@@ -124,13 +124,23 @@ class CombatModule(object):
         self.boss_fleet_found = False
         self.sea_map = None
         self.boss_defeated = False
-        self.mob_fleet_no = 1
-        self.boss_fleet_no = 2
-        self.switch_fleet_after_combats = 5
         self.force_fleet_no = None
         self.last_visited_idx = None
         self.homg = Homg()
-        self.homg.init_homg_vars()
+        custom_trans_pts = None
+        if self.chapter_map == 'E-D3' or \
+                self.chapter_map == 'E-C3' or \
+                self.chapter_map == 'E-B3' or \
+                self.chapter_map == 'E-A3':
+            custom_trans_pts = [
+                [[1005, 566], [1327, 566], [1009, 837], [1350, 837]],
+                [[1005, 566], [1005 + 2 * HomgConsts.TILE_WIDTH, 566], [1005, 566 + 2 * HomgConsts.TILE_HEIGHT],
+                 [1005 + 2 * HomgConsts.TILE_WIDTH, 566 + 2 * HomgConsts.TILE_HEIGHT]]
+            ]
+        if custom_trans_pts is None:
+            self.homg.init_homg_vars()
+        else:
+            self.homg.init_homg_vars(custom_trans_pts)
 
         # enhancecement and retirement flags
         enhancement_failed = False
@@ -142,7 +152,7 @@ class CombatModule(object):
 
         while True:
             Utils.update_screen()
-            self.store_screen_to_homg()
+            self.store_screen()
 
             if self.exit == 1 or self.exit == 2:
                 self.stats.increment_combat_done()
@@ -163,7 +173,7 @@ class CombatModule(object):
                 Logger.log_debug("Found map summary go button.")
                 Utils.touch_randomly(self.region["map_summary_go"])
                 Utils.wait_update_screen()
-                self.store_screen_to_homg()
+                self.store_screen()
             if Utils.find("combat/menu_fleet") and (lambda x: x > 414 and x < 584)(
                     Utils.find("combat/menu_fleet").y) and not self.config.combat['boss_fleet']:
                 if not self.chapter_map[0].isdigit() and string.ascii_uppercase.index(self.chapter_map[2:3]) < 1 or \
@@ -174,14 +184,14 @@ class CombatModule(object):
                 Logger.log_debug("Found fleet select go button.")
                 Utils.touch_randomly(self.region["fleet_menu_go"])
                 Utils.wait_update_screen(2)
-                self.store_screen_to_homg()
+                self.store_screen()
             if Utils.find("combat/button_retreat"):
                 Logger.log_debug("Found retreat button, starting clear function.")
                 if not self.clear_map():
                     self.stats.increment_combat_attempted()
                     break
                 Utils.wait_update_screen()
-                self.store_screen_to_homg()
+                self.store_screen()
             if Utils.find("menu/button_sort"):
                 if self.config.enhancement['enabled'] and not enhancement_failed:
                     if not self.enhancement_module.enhancement_logic_wrapper(forced=True):
@@ -297,11 +307,12 @@ class CombatModule(object):
         if map_region == None:
             Logger.log_error("Cannot find the specified map, please move to the world where it's located.")
         while map_region == None:
-            map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.99)
+            map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.75, bright_text=True)
             Utils.wait_update_screen(1)
 
         Logger.log_msg("Found specified map.")
         Utils.touch_randomly(map_region)
+        return map_region
 
     def battle_handler(self, boss=False):
         Logger.log_msg("Starting combat.")
@@ -311,7 +322,7 @@ class CombatModule(object):
         retirement_failed = False
         while not (Utils.find("combat/menu_loading", 0.8)):
             Utils.update_screen()
-            self.store_screen_to_homg()
+            self.store_screen()
             if Utils.find("menu/button_sort"):
                 if self.config.enhancement['enabled'] and not enhancement_failed:
                     if not self.enhancement_module.enhancement_logic_wrapper(forced=True):
@@ -347,7 +358,7 @@ class CombatModule(object):
         confirmed_fleet_switch = False
         while True:
             Utils.update_screen()
-            self.store_screen_to_homg()
+            self.store_screen()
 
             if in_battle and Utils.find("combat/combat_pause", 0.7):
                 Logger.log_debug("In battle.")
@@ -399,7 +410,7 @@ class CombatModule(object):
                         return True
                     Utils.wait_till_stable(max_time=3.0)
                     # Utils.wait_update_screen(3)
-                    self.store_screen_to_homg()
+                    self.store_screen()
                 if (not confirmed_fight) and Utils.find("combat/commander"):
                     items_received = True
                     # prevents fleet with submarines from getting stuck at combat end screen
@@ -427,7 +438,7 @@ class CombatModule(object):
                     Logger.log_msg("Found commission info message.")
                     Utils.touch_randomly(self.region["combat_com_confirm"])
                     continue
-                if confirmed_fight and Utils.find("combat/button_retreat"):
+                if confirmed_fight and (Utils.find("combat/button_retreat") or Utils.find("menu/attack")):
                     # Utils.touch_randomly(self.region["hide_strat_menu"])
                     if confirmed_fleet_switch:
                         # if fleet was defeated and it has now been switched
@@ -454,7 +465,11 @@ class CombatModule(object):
         Returns:
             (int): 1 if a fight is needed, -1 if unreachable, -2 if timeouts  otherwise 0.
         """
-        if target_info[0] < 175:
+        if target_info[1] < 240:
+            Logger.log_msg("Skip touching fleet buff zone. Move to next enemy")
+            return -1
+
+        if target_info[0] < 180:
             Logger.log_msg("Skip touching fleet info zone. Move to next enemy")
             return -1
 
@@ -466,14 +481,20 @@ class CombatModule(object):
             Logger.log_msg("Skip touching strategy zone. Move to next enemy")
             return -1
 
-        Logger.log_msg("Moving towards objective.")
-        count = 0
-        location = (target_info[0], target_info[1])
+        if 1920 > target_info[0] > 1845 and 340 > target_info[1] > 150:
+            Logger.log_msg("Skip touching stage info zone. Move to next enemy")
+            return -1
 
+        Logger.log_msg("Moving towards objective.")
+
+        location = (target_info[0], target_info[1])
         Utils.touch(location)
-        while count < 16:
+
+        start_time = datetime.now()
+        last_touch_time = start_time
+        while datetime.now() - start_time < timedelta(seconds=16):
             Utils.update_screen()
-            self.store_screen_to_homg()
+
             if Utils.find("combat/alert_unable_reach", 0.8):
                 Logger.log_warning("Unable to reach the target.")
                 return -1
@@ -487,9 +508,14 @@ class CombatModule(object):
                 self.kills_count -= 1
                 Utils.touch_randomly(self.region["menu_combat_start"])
                 self.battle_handler()
+                start_time = datetime.now()
+                Utils.wait_till_stable(max_time=2.0)
+                continue
             elif Utils.find("menu/alert_info"):
                 Logger.log_debug("Found alert.")
                 Utils.find_and_touch("menu/alert_close")
+                Utils.wait_till_stable(max_time=2.0)
+                continue
             elif Utils.find("combat/alert_ammo_supplies"):
                 Logger.log_msg("Ammo supplies found on node.")
                 return 0
@@ -497,21 +523,22 @@ class CombatModule(object):
                 Logger.log_msg("Item found on node.")
                 Utils.touch_randomly(self.region['tap_to_continue'])
                 if Utils.find("combat/menu_emergency"):
-                    Utils.wait_till_stable(max_time=1)
-                    self.store_screen_to_homg()
+                    Utils.script_sleep(1)
+                    Utils.update_screen()
                     if not Utils.find("combat/strategy"):
                         Utils.touch_randomly(self.region["close_strategy_menu"])
                         Utils.wait_till_stable(max_time=2)
                 return 0
+
             if Utils.find("combat/menu_loading"):
                 return 1
             elif Utils.find("combat/menu_formation"):
                 Utils.find_and_touch("combat/auto_combat_off")
                 return 1
-            else:
-                if count != 0 and count % 3 == 0:
-                    Utils.touch(location)
-                count += 1
+            elif datetime.now() - last_touch_time > timedelta(seconds=2):
+                last_touch_time = datetime.now()
+                Utils.touch(location)
+
         return -2
 
     def retreat_handler(self):
@@ -519,8 +546,13 @@ class CombatModule(object):
         """
         while True:
             Utils.wait_update_screen(2)
-            self.store_screen_to_homg()
+            self.store_screen()
 
+            if Utils.find("menu/alert_info"):
+                Logger.log_debug("Found alert.")
+                Utils.find_and_touch("menu/alert_close")
+                Utils.wait_till_stable(max_time=2.0)
+                continue
             if Utils.find("combat/alert_morale_low"):
                 Utils.touch_randomly(self.region['close_info_dialog'])
                 self.exit = 3
@@ -553,23 +585,7 @@ class CombatModule(object):
             Utils.touch_randomly(self.region["fleet_lock"])
             Logger.log_warning("Fleet lock is not supported, disabling it.")
             Utils.wait_update_screen(1)
-            self.store_screen_to_homg()
 
-        # swipe map to fit everything on screen
-        swipes = {
-            'E-SP1': lambda: Utils.swipe(960, 540, 1400, 640, 300),
-            'E-SP2': lambda: Utils.swipe(960, 540, 1500, 540, 300),
-            'E-SP3': lambda: Utils.swipe(960, 840, 1300, 540, 300),
-            '7-2': lambda: Utils.swipe(960, 540, 1300, 600, 300),
-            '10-2': lambda: Utils.swipe(960, 440, 960, 640, 300),
-            '12-2': lambda: Utils.swipe(1000, 570, 1300, 540, 300),
-            '12-3': lambda: Utils.swipe(1250, 530, 1300, 540, 300),
-            '12-4': lambda: Utils.swipe(960, 300, 960, 540, 300),
-            '13-1': lambda: Utils.swipe(1020, 500, 1300, 540, 300),
-            '13-2': lambda: Utils.swipe(1125, 550, 1300, 540, 300),
-            '13-3': lambda: Utils.swipe(1150, 510, 1300, 540, 300),
-            '13-4': lambda: Utils.swipe(1200, 450, 1300, 540, 300)
-        }
         # disable subs' hunting range
         if self.config.combat["hide_subs_hunting_range"]:
             Utils.script_sleep(0.5)
@@ -585,7 +601,7 @@ class CombatModule(object):
 
         while True:
             Utils.update_screen()
-            self.store_screen_to_homg()
+            self.store_screen()
 
             if self.boss_defeated:
                 self.exit = 1
@@ -647,7 +663,7 @@ class CombatModule(object):
 
             self.auto_switch_fleet()
 
-            ret = self.attack_fleet(1, skip_if_boss=True)
+            ret = self.auto_attack_fleet(1, skip_if_boss=True)
             if ret == 0:
                 self.exit = 4
                 break
@@ -671,7 +687,7 @@ class CombatModule(object):
 
         return fleet_switched
 
-    def attack_fleet(self, num, skip_if_boss):
+    def auto_attack_fleet(self, num, skip_if_boss):
         """
         :param num: number of fleets to attack
         :param skip_if_boss: return immediately if boss is detected
@@ -688,6 +704,8 @@ class CombatModule(object):
             succeed, self.last_visited_idx = self.attack_mob(supply_list, enemy_list)
             if succeed:
                 defeated_enemies += 1
+            elif self.auto_switch_fleet():
+                pass
             else:
                 self.swipe_map()
 
@@ -709,34 +727,39 @@ class CombatModule(object):
 
         if self.last_visited_idx is not None:
             node_coord = self.tile_idx_to_map_coord(self.last_visited_idx)
-            Utils.swipe(node_coord[0], node_coord[1], 960, 600, 600)
-            self.store_screen_to_homg()
+            self.protected_swipe(node_coord[0], node_coord[1], 960, 600, 600)
+            self.store_screen()
             self.last_visited_idx = None
 
         while give_up is False:
-            for i in range(12):
-                sea_map, supply_list, enemy_list = self.update_map()
-                if sea_map is None:
-                    for j in range(4):
-                        self.swipe_map()
-                        sea_map, supply_list, enemy_list = self.update_map()
-                        if sea_map is not None:
-                            break
+            for swipe_steps in range(1, 4):
+                for j in range(4):
+                    sea_map, supply_list, enemy_list = self.update_map()
+                    if sea_map is None:
+                        # Cannot find the anchor, try swiping the map
+                        for k in range(4):
+                            self.swipe_map()
+                            sea_map, supply_list, enemy_list = self.update_map()
+                            if sea_map is not None:
+                                break
 
-                if sea_map is None:
-                    # cannot read sea map after several tries
-                    return False, list(), list(), list()
-                else:
-                    boss_list = self.find_objs_on_map(HomgConsts.MAP_BOSS, sea_map)
-                    if len(boss_list) > 0 and not ignore_boss:
-                        boss_fleet_found = True
-                        break
-                    elif len(enemy_list) + len(supply_list) > 0:
-                        mob_fleet_found = True
-                        break
+                    if sea_map is None:
+                        # cannot read sea map after several tries
+                        return False, list(), list(), list()
                     else:
-                        # no object to attack or get, swipe the map
-                        self.swipe_map(int(i / 4) + 1)
+                        boss_list = self.find_objs_on_map(HomgConsts.MAP_BOSS, sea_map)
+                        if not ignore_boss and len(boss_list) > 0:
+                            boss_fleet_found = True
+                            break
+                        elif len(enemy_list) + len(supply_list) > 0:
+                            mob_fleet_found = True
+                            break
+                        else:
+                            # no object to attack or get, swipe the map
+                            self.swipe_map(swipe_steps)
+
+                if boss_fleet_found or mob_fleet_found:
+                    break
 
             if boss_fleet_found or mob_fleet_found:
                 break
@@ -745,9 +768,9 @@ class CombatModule(object):
                 while len(fleet_mov_ord) > 0:
                     fleet_no = fleet_mov_ord.pop(0)
                     if self.switch_fleet(fleet_no):
-                        self.store_screen_to_homg()
-                        self.homg.init_map_coordinate()
-                        sea_map = self.merge_map()
+                        self.store_screen()
+                    self.homg.init_map_coordinate()
+                    sea_map = self.merge_map()
                     free_list = self.find_objs_on_map(HomgConsts.MAP_FREE, sea_map)
                     if self.move_fleet_to_free_tile(free_list):
                         break
@@ -779,6 +802,10 @@ class CombatModule(object):
                     if self.battle_handler():
                         Utils.wait_till_stable(min_time=1.0, max_time=4.0)
                         return True, target_index
+                else:
+                    Utils.wait_till_stable(min_time=1, max_time=4)
+                    if self.combats_done >= self.switch_fleet_after_combats and self.get_fleet_number() == self.mob_fleet_no:
+                        return False, None
         return False, None
 
     def update_map(self):
@@ -820,7 +847,7 @@ class CombatModule(object):
                 self.homg.map_index_to_coord(target_index))
             if self.movement_handler(target_info) == -2:
                 return True
-            Utils.wait_till_stable(max_time=1.0)
+            Utils.wait_till_stable(max_time=2.0)
         return False
 
     def switch_fleet(self, fleet_number):
@@ -830,7 +857,7 @@ class CombatModule(object):
             self.last_visited_idx = None
             Utils.touch_randomly(self.region['button_switch_fleet'])
             Utils.wait_till_stable(max_time=2.0)
-            self.store_screen_to_homg()
+            self.store_screen()
         return True
 
     def get_fleet_number(self):
@@ -843,7 +870,7 @@ class CombatModule(object):
         # try to resolve the blinking yellow boundary by combining multiple maps
         # Create map
         Utils.update_screen()
-        self.store_screen_to_homg()
+        self.store_screen()
         # Cannot find pivot tile, swipe the map and try again
         prev_shape = (0, 0)
 
@@ -853,7 +880,7 @@ class CombatModule(object):
         while self.homg.get_map_shape() != prev_shape:
             prev_shape = self.homg.get_map_shape()
             Utils.update_screen()
-            self.store_screen_to_homg()
+            self.store_screen()
             self.homg.init_map_coordinate()
 
         sea_map = np.zeros(shape=self.homg.get_map_shape())
@@ -876,7 +903,9 @@ class CombatModule(object):
             sea_map[vote[::, ::, node_type] > num / 2] = node_type
         sea_map[vote[::, ::, HomgConsts.MAP_CHARACTER] > 0] = HomgConsts.MAP_CHARACTER
         sea_map[vote[::, ::, HomgConsts.MAP_SUPPLY] > 0] = HomgConsts.MAP_SUPPLY
-        print(sea_map)
+        self.homg.debug_output(sea_map)
+        Logger.log_debug("Read Map:")
+        Logger.log_debug('\n{}'.format(np.array2string(sea_map)))
         return sea_map
 
     def swipe_map(self, times=1):
@@ -891,9 +920,19 @@ class CombatModule(object):
             else:
                 self.switch_fleet(old_fleet_num)
         self.swipe_dir_idx = (self.swipe_dir_idx + 1) % 4
-        self.store_screen_to_homg()
+        Utils.wait_till_stable(max_time=2.0)
+        self.store_screen()
 
-    def map_swiping_resolver(self):
+    def protected_swipe(self, x1, y1, x2, y2, delay):
+        Utils.update_screen()
+        old_fleet_num = self.get_fleet_number()
+        Utils.swipe(x1, y1, x2, y2, delay)
+        Utils.wait_till_stable(max_time=2.0)
+        if old_fleet_num != self.get_fleet_number():
+            self.switch_fleet(old_fleet_num)
+        self.store_screen()
+
+    def boss_swipe_resolver(self):
         """
         first boss fleet resolving method
         try swiping the map
@@ -907,7 +946,7 @@ class CombatModule(object):
             boss_swipe_counter += 1
         return boss_region
 
-    def fleet_moving_resolver(self, fleet_no):
+    def boss_move_resolver(self, fleet_no):
         """
          second boss fleet resolving method
          try moving the fleet of fleet_no to a free tile to show the boss fleet
@@ -951,13 +990,13 @@ class CombatModule(object):
             boss_region = Utils.find_in_scaling_range("enemy/fleet_boss")
 
         if boss_region is None:
-            boss_region = self.map_swiping_resolver()
+            boss_region = self.boss_swipe_resolver()
 
         if boss_region is None:
-            boss_region = self.fleet_moving_resolver(self.boss_fleet_no)
+            boss_region = self.boss_move_resolver(self.boss_fleet_no)
 
         if boss_region is None and self.boss_fleet_no != self.mob_fleet_no:
-            boss_region = self.fleet_moving_resolver(self.mob_fleet_no)
+            boss_region = self.boss_move_resolver(self.mob_fleet_no)
             self.switch_fleet(self.boss_fleet_no)
 
         if boss_region is None:
@@ -978,8 +1017,7 @@ class CombatModule(object):
                 Utils.wait_till_stable(max_time=2.0)
                 return 1
 
-        Utils.swipe(boss_region.x, boss_region.y, 960, 640, 300)
-        self.store_screen_to_homg()
+        self.protected_swipe(boss_region.x, boss_region.y, 960, 640, 300)
         sea_map = self.merge_map()
         boss_index = self.find_objs_on_map(HomgConsts.MAP_BOSS, sea_map)
         if len(boss_index) > 0:
@@ -1011,7 +1049,7 @@ class CombatModule(object):
                 continue
             else:
                 Logger.log_msg("Unable to reach boss.")
-                Utils.script_sleep(2)
+                Utils.wait_till_stable(min_time=1, max_time=4)
                 # handle boss' coordinates
                 battle_end = False
                 while len(enemy_list) > 0:
@@ -1019,7 +1057,7 @@ class CombatModule(object):
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
-                            Utils.wait_till_stable(max_time=1.0)
+                            Utils.wait_till_stable(min_time=1.0, max_time=4.0)
                             break
                     else:
                         Utils.wait_update_screen(1)
@@ -1031,18 +1069,18 @@ class CombatModule(object):
 
         if self.switch_fleet(
                 self.mob_fleet_no) and self.switch_fleet(
-            self.boss_fleet_no) and self.attack_fleet(1, skip_if_boss=False) == 1:
+            self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
             return True
-        elif self.fleet_moving_resolver_mobs(self.boss_fleet_no) and self.attack_fleet(1, skip_if_boss=False) == 1:
+        elif self.mob_move_resolver(self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
             return True
 
-        elif self.fleet_moving_resolver_mobs(self.mob_fleet_no) and self.switch_fleet(
-                self.boss_fleet_no) and self.attack_fleet(1, skip_if_boss=False) == 1:
+        elif self.mob_move_resolver(self.mob_fleet_no) and self.switch_fleet(
+                self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
             return True
         else:
             return False
 
-    def fleet_moving_resolver_mobs(self, fleet_no):
+    def mob_move_resolver(self, fleet_no):
         """
          second boss fleet resolving method
          try moving the fleet of fleet_no to a free tile to show a enemy
@@ -1066,17 +1104,7 @@ class CombatModule(object):
         if tmp_map is None:
             return False
         free_list = self.get_free_tile_list(tmp_map)
-        """
-        prev_enemy_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, tmp_map)
-        while self.move_fleet_to_free_tile(free_list):
-            tmp_map = self.merge_map()
-            enemy_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, tmp_map)
-            if prev_enemy_list == enemy_list:
-                prev_enemy_list = enemy_list
-            else:
-                return True
-        return False
-        """
+
         if self.move_fleet_to_free_tile(free_list):
             return True
         else:
@@ -1089,7 +1117,7 @@ class CombatModule(object):
         else:
             return list()
 
-    def store_screen_to_homg(self):
+    def store_screen(self):
         self.homg.load_color_screen(Utils.color_screen)
 
     # unused function
