@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
+import enum
 import util.homg_trans_consts as trans_consts
 
 
-class HomographyTransform():
+class HomographyTransform:
     """
     Dependencies of each function must be executed at least once before calling it.
     """
@@ -35,7 +36,7 @@ class HomographyTransform():
         self.__enemy3_img = cv2.imread(trans_consts.ENEMY_3_IMG, cv2.IMREAD_COLOR)
         self.__boss_img = cv2.imread(trans_consts.BOSS_IMG, cv2.IMREAD_COLOR)
 
-    def init_homg_vars(self,custom_trans_pts=None):
+    def init_homg_vars(self, custom_trans_pts=None):
         """
         Initialize the variables used in this class.
         Must be executed once before executing any other functions.
@@ -88,7 +89,7 @@ class HomographyTransform():
         :return:
         """
         self.__small_boss_icon = val
-        
+
     def enable_debug_log(self, enable, debug_out_func):
         if enable and debug_out_func is None:
             return False
@@ -194,15 +195,16 @@ class HomographyTransform():
          """
         return (self.__row_max_idx, self.__col_max_idx)
 
-    def create_map(self):
+    def create_map(self, node_info=False):
         """
         Detect the object in each tile.
         See homg_trans_consts for the definitions of the constants used in the returned map.
         Dependencies: init_map_coordinate
         :return: M x N numpy array filled with constants defined in homg_trans_consts
         """
-        # Read source image.
-        free_tile_imgs = self.__free_tile_imgs
+
+        # {(row,col): NodeInfo}
+        node_dict = dict()
 
         # crop the color screen
         crop_color_screen = self.__color_screen[:][
@@ -273,10 +275,13 @@ class HomographyTransform():
                 yellow_hsv_color_mask = cv2.inRange(hsv_crop, lower_yellow, upper_yellow)
                 if np.count_nonzero(red_hsv_color_mask) > trans_consts.BOUNDARY_RED_COUNT_THRESH:
                     sea_map[j, i] = trans_consts.MAP_ENEMY
+                    tmp = NodeInfo()
+                    tmp.set_siren()
+                    node_dict[(j, i)] = tmp
                 elif np.count_nonzero(yellow_hsv_color_mask) > trans_consts.BOUNDARY_YELLOW_COUNT_THRESH:
                     sea_map[j, i] = trans_consts.MAP_SUPPLY
 
-        self.__match_mob_tile_scale(self.__color_screen, sea_map)
+        self.__match_mob_tile_scale(self.__color_screen, sea_map, node_dict)
         self.__match_character_tile_scale(self.__color_screen, sea_map)
         self.__match_boss_tile_scale(self.__color_screen, sea_map)
 
@@ -284,7 +289,10 @@ class HomographyTransform():
             self.debug_output(sea_map)
             self.__debug_out_func('Read Map:\n{}'.format(np.array2string(sea_map)))
 
-        return sea_map
+        if node_info:
+            return sea_map, node_dict
+        else:
+            return sea_map
 
     def debug_output(self, sea_map):
         crop_color_screen = self.__color_screen[:][
@@ -323,12 +331,11 @@ class HomographyTransform():
         cv2.imwrite("debug_color_trans.png", screen_trans)
         cv2.imwrite("debug_edge.png", cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE,
                                                        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (
-                                                       trans_consts.CLOSING_KERNEL_MIN_SIZE,
-                                                       trans_consts.CLOSING_KERNEL_MIN_SIZE))))
+                                                           trans_consts.CLOSING_KERNEL_MIN_SIZE,
+                                                           trans_consts.CLOSING_KERNEL_MIN_SIZE))))
         cv2.imwrite("debug_color.png", crop_color_screen)
 
-
-    def __match_mob_tile_scale(self, screen, sea_map):
+    def __match_mob_tile_scale(self, screen, sea_map, node_dict):
         """
         Find the tiles where the enemies are located.
         Result will write into the corresponded tile in sea_map.
@@ -366,16 +373,21 @@ class HomographyTransform():
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
+                        node_dict[(i, j)] = NodeInfo()
+
                 if corp.shape[0] >= e2_scaled.shape[0] and corp.shape[1] >= e2_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e2_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
+                        node_dict[(i, j)] = NodeInfo()
+
                 if corp.shape[0] >= e3_scaled.shape[0] and corp.shape[1] >= e3_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e3_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
+                        node_dict[(i, j)] = NodeInfo()
 
     def __match_character_tile_scale(self, screen, sea_map):
         """
@@ -539,3 +551,34 @@ class HomographyTransform():
                             new_queue.append(loc)
             queue = new_queue
         return found_enemies, found_supplies
+
+    def siren_first_filter(self, enemy_list, node_dict):
+
+        insert_idx = 0
+
+        for i in range(len(enemy_list)):
+            node_info = node_dict.get(enemy_list[i])
+            if node_info is not None:
+                if node_info.is_siren():
+                    enemy_list.insert(insert_idx, enemy_list.pop(i))
+                    insert_idx+=1
+
+class NodeInfo:
+    class _EnemyType(enum.Enum):
+        SIREN = enum.auto()
+        UNKNOWN = enum.auto()
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._is_ammo = False
+        self._is_supply = False
+        self._enemy_type = None
+        self._enemy_level = None
+
+    def is_siren(self):
+        return self._enemy_type == self._EnemyType.SIREN
+
+    def set_siren(self):
+        self._enemy_type = self._EnemyType.SIREN

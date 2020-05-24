@@ -15,7 +15,7 @@ ENEMY_3_IMG = 'assets/map_detection/e3.png'
 ARROW_IMG = 'assets/map_detection/arrow.png'
 BOSS_IMG = 'assets/map_detection/boss.png'
 
-TOTAL_MAP_OBJS = 6
+MAP_OBJ_TYPES = 6
 # Constants used in the returned map
 MAP_OBSTACLE = 0
 MAP_FREE = 1

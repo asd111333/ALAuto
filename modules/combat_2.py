@@ -841,9 +841,12 @@ class CombatModule(object):
         return False, None
 
     def update_map(self):
-        sea_map = self.merge_map()
-        if sea_map is None:
+        ret = self.merge_map(node_info=True)
+        if ret is None:
             return None, list(), list()
+        sea_map = ret[0]
+        node_dict = ret[1]
+
         # Find character
         character_loc = np.where(sea_map == HomgConsts.MAP_CHARACTER)
         enemy_list = []
@@ -860,6 +863,8 @@ class CombatModule(object):
             supply_list = self.find_objs_on_map(HomgConsts.MAP_SUPPLY, sea_map)
             if len(supply_list) > 0:
                 random.shuffle(supply_list)
+
+        self.homg.siren_first_filter(enemy_list, node_dict)
 
         return sea_map, supply_list, enemy_list
 
@@ -898,7 +903,7 @@ class CombatModule(object):
         else:
             return 2
 
-    def merge_map(self, num=3):
+    def merge_map(self, num=3, node_info = False):
         # try to resolve the blinking yellow boundary by combining multiple maps
         # Create map
         Utils.update_screen()
@@ -917,12 +922,15 @@ class CombatModule(object):
 
         sea_map = np.zeros(shape=self.homg.get_map_shape())
         # should remove the magic number 6
-        types_of_node = 6
+        types_of_node = HomgConsts.MAP_OBJ_TYPES
         vote = np.zeros(shape=(*self.homg.get_map_shape(), types_of_node))
         counter = 0
+
+        #TODO: Find a better way to merge node_info instead of using the last node_info.
+
         while counter < num:
             Utils.update_screen()
-            tmp_map = self.homg.create_map()
+            tmp_map, node_dict = self.homg.create_map(node_info=True)
             if tmp_map.shape != sea_map.shape:
                 continue
             if tmp_map is None:
@@ -938,7 +946,10 @@ class CombatModule(object):
         self.homg.debug_output(sea_map)
         Logger.log_debug("Read Map:")
         Logger.log_debug('\n{}'.format(np.array2string(sea_map)))
-        return sea_map
+        if node_info:
+            return sea_map, node_dict
+        else:
+            return sea_map
 
     def swipe_map(self, times=1):
         Utils.update_screen()
