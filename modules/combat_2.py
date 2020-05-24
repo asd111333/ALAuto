@@ -128,6 +128,7 @@ class CombatModule(object):
         self.last_visited_idx = None
         self.homg = Homg()
         custom_trans_pts = None
+
         if self.chapter_map == 'E-D3' or \
                 self.chapter_map == 'E-C3' or \
                 self.chapter_map == 'E-B3' or \
@@ -137,6 +138,29 @@ class CombatModule(object):
                 [[1005, 566], [1005 + 2 * HomgConsts.TILE_WIDTH, 566], [1005, 566 + 2 * HomgConsts.TILE_HEIGHT],
                  [1005 + 2 * HomgConsts.TILE_WIDTH, 566 + 2 * HomgConsts.TILE_HEIGHT]]
             ]
+
+        if self.chapter_map == 'E-D2' or \
+                self.chapter_map == 'E-C2' or \
+                self.chapter_map == 'E-B2' or \
+                self.chapter_map == 'E-A2':
+            custom_trans_pts = [
+                [[485, 529], [870, 529], [439, 827], [861, 827]],
+                [[485, 529], [485 + 2 * HomgConsts.TILE_WIDTH, 529], [485, 529 + 2 * HomgConsts.TILE_HEIGHT],
+                 [485 + 2 * HomgConsts.TILE_WIDTH, 529 + 2 * HomgConsts.TILE_HEIGHT]]
+            ]
+
+
+        if self.chapter_map == 'E-D1' or \
+                self.chapter_map == 'E-C1' or \
+                self.chapter_map == 'E-B1' or \
+                self.chapter_map == 'E-A1':
+            custom_trans_pts = [
+                [[347, 578], [777, 578], [273, 923], [755, 923]],
+                [[347, 578], [347 + 2 * HomgConsts.TILE_WIDTH, 578], [347, 578 + 2 * HomgConsts.TILE_HEIGHT],
+                 [347 + 2 * HomgConsts.TILE_WIDTH, 578 + 2 * HomgConsts.TILE_HEIGHT]]
+            ]
+
+
         if custom_trans_pts is None:
             self.homg.init_homg_vars()
         else:
