@@ -440,7 +440,7 @@ class Utils(object):
         return
 
     @classmethod
-    def find(cls, image, similarity=DEFAULT_SIMILARITY, color=False, bright_text=False):
+    def find(cls, image, similarity=DEFAULT_SIMILARITY, color=False):
         """Finds the specified image on the screen
 
         Args:
@@ -460,27 +460,6 @@ class Utils(object):
         else:
             template = cv2.imread('assets/{}/{}.png'.format(cls.assets, image), 0)
             screen = cls.screen
-
-        if bright_text:
-            """
-            template = cv2.Canny(template, 100, 200)
-            cv2.imshow("temp",template)
-            screen = cv2.Canny(screen, 100, 200)
-            cv2.imshow("screen", screen)
-            cv2.waitKey(0)
-            """
-            if len(screen.shape) > 2:
-                screen = cv2.cvtColor(screen, cv2.COLOR_BGR2HSV)
-                template = cv2.cvtColor(template, cv2.COLOR_BGR2HSV)
-                lower = numpy.array([0,0,200])
-                upper = numpy.array([0,0,255])
-            else:
-                lower = numpy.array([200])
-                upper = numpy.array([255])
-
-            screen = cv2.inRange(screen, lower, upper)
-            template = cv2.inRange(template, lower, upper)
-
 
         match = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
         height, width = template.shape[:2]
@@ -943,7 +922,7 @@ class Utils(object):
         Adb.shell(start_args)
 
     @classmethod
-    @func_set_timeout(1)
+    @func_set_timeout(5)
     def kill_game(cls):
         package_name = 'com.YoStarEN.AzurLane'
         stop_args = 'am force-stop {}'.format(package_name)

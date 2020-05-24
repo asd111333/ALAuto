@@ -292,7 +292,7 @@ class CombatModule(object):
                 Utils.touch_randomly(self.region['normal_mode_button'])
                 Utils.wait_update_screen(1)
 
-        map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.99)
+        map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.9)
         if map_region != None:
             Logger.log_msg("Found specified map.")
             Utils.touch_randomly(map_region)
@@ -301,17 +301,17 @@ class CombatModule(object):
             # navigate map selection menu
             if not self.chapter_map[0].isdigit():
                 if (self.chapter_map[2] == 'A' or self.chapter_map[2] == 'C') and \
-                        (Utils.find('maps/map_E-B1', 0.99) or Utils.find('maps/map_E-D1', 0.99)):
+                        (Utils.find('maps/map_E-B1', 0.9) or Utils.find('maps/map_E-D1', 0.9)):
                     Utils.touch_randomly(self.region['map_nav_left'])
                     Logger.log_debug("Swiping to the left")
                 elif (self.chapter_map[2] == 'B' or self.chapter_map[2] == 'D') and \
-                        (Utils.find('maps/map_E-A1', 0.99) or Utils.find('maps/map_E-C1', 0.99)):
+                        (Utils.find('maps/map_E-A1', 0.9) or Utils.find('maps/map_E-C1', 0.9)):
                     Utils.touch_randomly(self.region['map_nav_right'])
                     Logger.log_debug("Swiping to the right")
             else:
                 _map = 0
                 for x in range(1, 14):
-                    if Utils.find("maps/map_{}-1".format(x), 0.99):
+                    if Utils.find("maps/map_{}-1".format(x), 0.9):
                         _map = x
                         break
                 if _map != 0:
@@ -327,11 +327,13 @@ class CombatModule(object):
                             Utils.script_sleep()
 
         Utils.wait_update_screen()
-        map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.99)
+        map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.9)
+
         if map_region == None:
             Logger.log_error("Cannot find the specified map, please move to the world where it's located.")
+
         while map_region == None:
-            map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.75, bright_text=True)
+            map_region = Utils.find('maps/map_{}'.format(self.chapter_map), 0.9)
             Utils.wait_update_screen(1)
 
         Logger.log_msg("Found specified map.")
