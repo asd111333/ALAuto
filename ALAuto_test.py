@@ -210,7 +210,7 @@ else:
     Logger.log_error('Unable to connect to the service.')
     sys.exit()
 
-#Utils.restart_handler()
+Utils.restart_handler()
 try:
     while True:
         Utils.update_screen()

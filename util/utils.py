@@ -8,7 +8,7 @@ from imutils import contours, grab_contours
 from datetime import datetime, timedelta
 from random import uniform, gauss, randint
 from scipy import spatial
-from func_timeout import func_timeout, FunctionTimedOut
+from func_timeout import func_timeout, FunctionTimedOut, func_set_timeout
 from util.adb import Adb
 from util.logger import Logger
 from util.config_consts import UtilConsts
@@ -902,6 +902,7 @@ class Utils(object):
 
 
     @classmethod
+    @func_set_timeout(600)
     def login_handler(cls):
         button_battle = "menu/button_battle"
         alert_close = "menu/notice_close"
@@ -932,6 +933,7 @@ class Utils(object):
         return
 
     @classmethod
+    @func_set_timeout(10)
     def restart_game(cls):
         package_name = 'com.YoStarEN.AzurLane'
         start_args = 'monkey -p {} 1'.format(package_name)
@@ -941,6 +943,7 @@ class Utils(object):
         Adb.shell(start_args)
 
     @classmethod
+    @func_set_timeout(1)
     def kill_game(cls):
         package_name = 'com.YoStarEN.AzurLane'
         stop_args = 'am force-stop {}'.format(package_name)
@@ -949,13 +952,13 @@ class Utils(object):
     @classmethod
     def restart_handler(cls):
         while True:
-            Utils.restart_game()
             try:
-                func_timeout(600, Utils.login_handler)
-                func_timeout(300, Utils.menu_navigate)
+                Utils.login_handler()
+                Utils.menu_navigate()
+                break
             except FunctionTimedOut:
                 continue
-            break
+
 
 
     @classmethod
