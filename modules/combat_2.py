@@ -491,6 +491,12 @@ class CombatModule(object):
         Returns:
             (int): 1 if a fight is needed, -1 if unreachable, -2 if timeouts  otherwise 0.
         """
+
+        if not (0 <= target_info[0] < 1920 and 0 <= target_info[1] < 1080):
+            Logger.log_msg("Skip touching out of screen zone. Move to next enemy")
+            return -1
+
+
         if target_info[1] < 240:
             Logger.log_msg("Skip touching fleet buff zone. Move to next enemy")
             return -1
@@ -829,7 +835,7 @@ class CombatModule(object):
                         Utils.wait_till_stable(min_time=1.0, max_time=4.0)
                         return True, target_index
                 else:
-                    Utils.wait_till_stable(min_time=1, max_time=4)
+                    Utils.wait_till_stable(min_time=1, max_time=6.0)
                     if self.combats_done >= self.switch_fleet_after_combats and self.get_fleet_number() == self.mob_fleet_no:
                         return False, None
         return False, None
@@ -1083,7 +1089,7 @@ class CombatModule(object):
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
-                            Utils.wait_till_stable(min_time=1.0, max_time=4.0)
+                            Utils.wait_till_stable(min_time=1.0, max_time=6.0)
                             break
                     else:
                         Utils.wait_update_screen(1)
@@ -1108,7 +1114,7 @@ class CombatModule(object):
 
     def mob_move_resolver(self, fleet_no):
         """
-         second boss fleet resolving method
+         mob fleet resolving method
          try moving the fleet of fleet_no to a free tile to show a enemy
          """
         if self.boss_fleet_no != fleet_no and self.mob_fleet_no != fleet_no:

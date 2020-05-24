@@ -225,7 +225,7 @@ class CommissionModule:
             sidebar = self.detect_in_side_bar(self.ImageFileName.sidebar)
             if sidebar:
                 Utils.touch_randomly(self.ObjectRegion.dismiss_side_tab)
-                Utils.wait_till_stable()
+                Utils.wait_till_stable(similarity=0.9)
             if Utils.find(self.ImageFileName.button_battle):
                 break
             Utils.update_screen()

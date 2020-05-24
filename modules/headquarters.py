@@ -24,7 +24,7 @@ class HeadquartersModule(object):
             'academy_tab': Region(255, 390, 260, 295),
             'dorm_back_button': Region(21, 47, 65, 65),
             'dorm_eye_button': Region(27, 223, 50, 47),
-            'supplies_bar': Region(310, 975, 215, 65),
+            'supplies_bar': Region(50, 985, 30, 30),
             'oxy_cola': Region(470, 580, 105, 90),
             'exit_snacks_menu': Region(900, 880, 380, 135),
             'button_back': Region(48, 43, 76, 76),

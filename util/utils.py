@@ -949,7 +949,7 @@ class Utils(object):
         accum_stable_time = timedelta(seconds=0)
         cls.update_screen()
         screen_prev = cls.color_screen
-        while max_time is not None and t_current - t_start < timedelta(seconds=max_time):
+        while max_time is None or t_current - t_start < timedelta(seconds=max_time):
             t_current = datetime.now()
             if t_current - t_prev < timedelta(microseconds=200):
                 time.sleep(0.2-(t_current-t_prev).total_seconds())
