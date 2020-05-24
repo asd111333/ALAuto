@@ -953,8 +953,8 @@ class Utils(object):
     def restart_handler(cls):
         while True:
             try:
+                Utils.restart_game()
                 Utils.login_handler()
-                Utils.menu_navigate()
                 break
             except FunctionTimedOut:
                 continue
