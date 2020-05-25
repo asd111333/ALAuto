@@ -1,3 +1,5 @@
+PLease use ALAuto_test.py instead of AlAuto.py.
+
 # ALAuto
 Updated and semi-rewritten version of [azurlane-auto](https://github.com/perryhuynh/azurlane-auto).  
 Automates Combat, Commissions, Missions, Enhancement, Retiring, Skill Levelling, Dorm Refilling and Dorm Cleaning.
