@@ -15,7 +15,6 @@ from util.config_consts import UtilConsts
 from threading import Thread
 
 
-
 class Region(object):
     x, y, w, h = 0, 0, 0, 0
 
@@ -50,7 +49,6 @@ class Region(object):
         return (valid_x[0] <= region.x <= valid_x[1] and valid_y[0] <= region.y <= valid_y[1] and
                 valid_w[0] <= region.w <= valid_w[1] and valid_h[0] <= region.h <= valid_h[1])
 
-
     def intersection(self, other):
         """Checks if there is an intersection between the two regions,
         and if that is the case, returns it.
@@ -62,18 +60,18 @@ class Region(object):
         Returns:
             intersection (Region) or None.
         """
-        a = (self.x, self.y, self.x+self.w, self.y+self.h)
-        b = (other.x, other.y, other.x+other.w, other.y+other.h)
+        a = (self.x, self.y, self.x + self.w, self.y + self.h)
+        b = (other.x, other.y, other.x + other.w, other.y + other.h)
         x1 = max(min(a[0], a[2]), min(b[0], b[2]))
         y1 = max(min(a[1], a[3]), min(b[1], b[3]))
         x2 = min(max(a[0], a[2]), max(b[0], b[2]))
         y2 = min(max(a[1], a[3]), max(b[1], b[3]))
-        if x1<x2 and y1<y2:
-            return type(self)(x1, y1, x2-x1, y2-y1)
+        if x1 < x2 and y1 < y2:
+            return type(self)(x1, y1, x2 - x1, y2 - y1)
 
     def get_center(self):
         """Calculate and returns the center of this region."""
-        return [(self.x * 2 + self.w)//2, (self.y * 2 + self.h)//2]
+        return [(self.x * 2 + self.w) // 2, (self.y * 2 + self.h) // 2]
 
     def contains(self, coords):
         """Checks if the specified coordinates are inside the region.
@@ -84,6 +82,7 @@ class Region(object):
             (bool): whether the point is inside the region.
         """
         return (self.x <= coords[0] <= (self.x + self.w)) and (self.y <= coords[1] <= (self.y + self.h))
+
 
 screen = None
 last_ocr = ''
@@ -101,7 +100,7 @@ class Utils(object):
     locations = ()
 
     @classmethod
-    def init_screencap_mode(cls,mode):
+    def init_screencap_mode(cls, mode):
         consts = UtilConsts.ScreenCapMode
 
         cls.screencap_mode = mode
@@ -133,7 +132,7 @@ class Utils(object):
             for subsequent screen refreshes
         """
         global bytepointer
-        while(byteArray[bytepointer:bytepointer + 4] != b'BMZ1'):
+        while (byteArray[bytepointer:bytepointer + 4] != b'BMZ1'):
             bytepointer += 1
             if bytepointer >= len(byteArray):
                 raise Exception('Repositioning byte pointer failed, corrupted aScreenCap data received')
@@ -360,7 +359,8 @@ class Utils(object):
 
         See cv2.rectangle() docs.
         """
-        cv2.rectangle(screen, (region.x, region.y), (region.x+region.w, region.y+region.h), color=color, thickness=thickness)
+        cv2.rectangle(screen, (region.x, region.y), (region.x + region.w, region.y + region.h), color=color,
+                      thickness=thickness)
 
     @staticmethod
     def read_numbers(x, y, w, h, max_digits=5):
@@ -523,11 +523,13 @@ class Utils(object):
 
         thread_list = []
         while (upperEnd > lowerEnd) and (count < loop_limiter):
-            thread_list.append(Thread(target=cls.resize_and_match, args=(results_list, template, lowerEnd, similarity, l_interpolation)))
-            thread_list.append(Thread(target=cls.resize_and_match, args=(results_list, template, upperEnd, similarity, u_interpolation)))
-            lowerEnd+=0.02
-            upperEnd-=0.02
-            count +=1
+            thread_list.append(Thread(target=cls.resize_and_match,
+                                      args=(results_list, template, lowerEnd, similarity, l_interpolation)))
+            thread_list.append(Thread(target=cls.resize_and_match,
+                                      args=(results_list, template, upperEnd, similarity, u_interpolation)))
+            lowerEnd += 0.02
+            upperEnd -= 0.02
+            count += 1
         cls.multithreader(thread_list)
         if results_list:
             return results_list[0]
@@ -601,7 +603,8 @@ class Utils(object):
             thread_list = []
             results_list = []
             while count > 0.80:
-                thread_list.append(Thread(target=cls.match_resize, args=(results_list,template,count,comparison_method,similarity,useMask,mask)))
+                thread_list.append(Thread(target=cls.match_resize, args=(
+                results_list, template, count, comparison_method, similarity, useMask, mask)))
                 count -= 0.02
             Utils.multithreader(thread_list)
             for i in range(0, len(results_list)):
@@ -617,8 +620,8 @@ class Utils(object):
         image = cv2.cvtColor(color_screen, cv2.COLOR_BGR2HSV)
 
         # We use this primarily to pick out elites from event maps. Depending on the event, this may need to be updated with additional masks.
-        lower_red = numpy.array([170,100,180])
-        upper_red = numpy.array([180,255,255])
+        lower_red = numpy.array([170, 100, 180])
+        upper_red = numpy.array([180, 255, 255])
         mask = cv2.inRange(image, lower_red, upper_red)
 
         ret, thresh = cv2.threshold(mask, 50, 255, cv2.THRESH_BINARY)
@@ -648,18 +651,20 @@ class Utils(object):
         return cls.filter_similar_coords(locations)
 
     @classmethod
-    def match_resize(cls, results_list, image, scale, comparison_method, similarity=DEFAULT_SIMILARITY, useMask=False, mask=None):
-        template_resize = cv2.resize(image, None, fx = scale, fy = scale, interpolation = cv2.INTER_NEAREST)
+    def match_resize(cls, results_list, image, scale, comparison_method, similarity=DEFAULT_SIMILARITY, useMask=False,
+                     mask=None):
+        template_resize = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
         if useMask:
-            mask_resize = cv2.resize(mask, None, fx = scale, fy = scale, interpolation = cv2.INTER_NEAREST)
+            mask_resize = cv2.resize(mask, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
         else:
             mask_resize = None
         match_resize = cv2.matchTemplate(screen, template_resize, comparison_method, mask=mask_resize)
         results_list.append(numpy.where(match_resize >= similarity))
 
     @classmethod
-    def resize_and_match(cls, results_list, templateImage, scale, similarity=DEFAULT_SIMILARITY, interpolationMethod=cv2.INTER_NEAREST):
-        template_resize = cv2.resize(templateImage, None, fx = scale, fy = scale, interpolation = interpolationMethod)
+    def resize_and_match(cls, results_list, templateImage, scale, similarity=DEFAULT_SIMILARITY,
+                         interpolationMethod=cv2.INTER_NEAREST):
+        template_resize = cv2.resize(templateImage, None, fx=scale, fy=scale, interpolation=interpolationMethod)
         width, height = template_resize.shape[::-1]
         match = cv2.matchTemplate(screen, template_resize, cv2.TM_CCOEFF_NORMED)
         value, location = cv2.minMaxLoc(match)[1], cv2.minMaxLoc(match)[3]
@@ -766,7 +771,7 @@ class Utils(object):
         Returns:
             array: An array containing the filtered coordinates.
         """
-        #Logger.log_debug("Coords: " + str(coords))
+        # Logger.log_debug("Coords: " + str(coords))
         filtered_coords = []
         if len(coords) > 0:
             filtered_coords.append(coords[0])
@@ -837,7 +842,6 @@ class Utils(object):
             return Region(location[0] + region.x, location[1] + region.y, width, height)
         return None
 
-
     @classmethod
     def menu_navigate(cls, image=None):
         button_battle = "menu/button_battle"
@@ -879,7 +883,6 @@ class Utils(object):
             cls.wait_update_screen(1)
         return
 
-
     @classmethod
     @func_set_timeout(600)
     def login_handler(cls):
@@ -905,7 +908,7 @@ class Utils(object):
                 cls.touch_randomly(button_confirm_coord)
             elif login_coord:
                 cls.touch_randomly(Region(1540, 770, 360, 60))
-                cls.wait_till_stable(min_time=2.0,max_time=4.0)
+                cls.wait_till_stable(min_time=2.0, max_time=4.0)
             else:
                 cls.touch_randomly(Region(1820, 30, 40, 40))
             cls.wait_update_screen(1)
@@ -938,8 +941,6 @@ class Utils(object):
             except FunctionTimedOut:
                 continue
 
-
-
     @classmethod
     def wait_till_stable(cls, similarity=DEFAULT_SIMILARITY, min_time=0.5, max_time=None, frame_count=3):
         counter = 0
@@ -952,7 +953,7 @@ class Utils(object):
         while max_time is None or t_current - t_start < timedelta(seconds=max_time):
             t_current = datetime.now()
             if t_current - t_prev < timedelta(microseconds=200):
-                time.sleep(0.2-(t_current-t_prev).total_seconds())
+                time.sleep(0.2 - (t_current - t_prev).total_seconds())
                 t_current = datetime.now()
 
             cls.update_screen()
@@ -979,8 +980,3 @@ class Utils(object):
             t_prev = t_current
 
         return False
-
-
-
-
-

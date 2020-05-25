@@ -19,6 +19,7 @@ from util.logger import Logger
 from util.stats import Stats
 from util.utils import Utils, Region
 
+
 class ALAuto(object):
     modules = {
         'updates': None,
@@ -56,7 +57,8 @@ class ALAuto(object):
         if self.config.dorm['enabled'] or self.config.academy['enabled']:
             self.modules['headquarters'] = HeadquartersModule(self.config, self.stats)
         if self.config.combat['enabled']:
-            self.modules['combat'] = CombatModule(self.config, self.stats, self.modules['retirement'], self.modules['enhancement'])
+            self.modules['combat'] = CombatModule(self.config, self.stats, self.modules['retirement'],
+                                                  self.modules['enhancement'])
             self.oil_limit = self.config.combat['oil_limit']
         if self.config.research['enabled']:
             self.modules['research'] = ResearchModule(self.config, self.stats)
@@ -74,9 +76,9 @@ class ALAuto(object):
         """Method to check wether bot should combat or not.
         """
         return (self.modules['combat'] or self.modules['event']) \
-            and script.next_combat != 0 \
-            and script.next_combat < datetime.now() \
-            and Utils.check_oil(self.oil_limit)
+               and script.next_combat != 0 \
+               and script.next_combat < datetime.now() \
+               and Utils.check_oil(self.oil_limit)
 
     def run_sortie_cycle(self):
         """Method to run all cycles related to combat.
@@ -98,13 +100,15 @@ class ALAuto(object):
                 self.print_stats_check = True
             if result == 3:
                 # if morale is too low
-                Logger.log_warning("Ships morale is too low, entering standby mode for {} hour/s.".format(self.config.combat['low_mood_sleep_time']))
+                Logger.log_warning("Ships morale is too low, entering standby mode for {} hour/s.".format(
+                    self.config.combat['low_mood_sleep_time']))
                 self.next_combat = datetime.now() + timedelta(hours=self.config.combat['low_mood_sleep_time'])
                 self.print_stats_check = False
             if result == 4:
                 # if dock is full
                 Logger.log_warning("Dock is full, need to retire/enhance.")
-                Logger.log_error("Retirement and Enhancement aren't enabled or both failed to exectute their task, exiting.")
+                Logger.log_error(
+                    "Retirement and Enhancement aren't enabled or both failed to exectute their task, exiting.")
                 sys.exit()
             if result == 5:
                 Logger.log_warning("Failed to defeat enemy.")
@@ -162,6 +166,7 @@ class ALAuto(object):
             self.stats.print_stats(Utils.check_oil(self.oil_limit))
         self.print_stats_check = False
 
+
 # check run-time args
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config',
@@ -216,8 +221,8 @@ try:
         Utils.update_screen()
         # temporal solution to event alerts
         try:
-            func_timeout(300,Utils.menu_navigate)
-            func_timeout(600,script.run_commission_cycle)
+            func_timeout(300, Utils.menu_navigate)
+            func_timeout(600, script.run_commission_cycle)
             script.print_cycle_stats()
 
             if Utils.find("mission/alert_completed"):

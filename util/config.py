@@ -170,6 +170,7 @@ class Config(object):
         self.combat['mob_fleet_no'] = self.try_cast_to_int(config.get('Combat', 'MobFleetNo'))
         self.combat['boss_fleet_no'] = self.try_cast_to_int(config.get('Combat', 'BossFleetNo'))
         self.combat['switch_fleet_after_combat'] = self.try_cast_to_int(config.get('Combat', 'SwitchFleetAfterCombat'))
+        self.combat['siren_first'] = config.getboolean('Combat', 'SirenFirst')
 
     def _read_headquarters(self, config):
         """Method to parse the Headquarters settings passed in config.

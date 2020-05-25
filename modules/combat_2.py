@@ -46,6 +46,8 @@ class CombatModule(object):
         self.last_visited_idx = None
         self.homg = None
 
+        self.siren_first_filter = config.combat['siren_first']
+
         self.kills_count = 0
         self.kills_before_boss = {
             '1-1': 1, '1-2': 2, '1-3': 2, '1-4': 3,
@@ -149,7 +151,6 @@ class CombatModule(object):
                  [485 + 2 * HomgConsts.TILE_WIDTH, 529 + 2 * HomgConsts.TILE_HEIGHT]]
             ]
 
-
         if self.chapter_map == 'E-D1' or \
                 self.chapter_map == 'E-C1' or \
                 self.chapter_map == 'E-B1' or \
@@ -159,7 +160,6 @@ class CombatModule(object):
                 [[347, 578], [347 + 2 * HomgConsts.TILE_WIDTH, 578], [347, 578 + 2 * HomgConsts.TILE_HEIGHT],
                  [347 + 2 * HomgConsts.TILE_WIDTH, 578 + 2 * HomgConsts.TILE_HEIGHT]]
             ]
-
 
         if custom_trans_pts is None:
             self.homg.init_homg_vars()
@@ -495,7 +495,6 @@ class CombatModule(object):
         if not (0 <= target_info[0] < 1920 and 0 <= target_info[1] < 1080):
             Logger.log_msg("Skip touching out of screen zone. Move to next enemy")
             return -1
-
 
         if target_info[1] < 240:
             Logger.log_msg("Skip touching fleet buff zone. Move to next enemy")
@@ -864,7 +863,8 @@ class CombatModule(object):
             if len(supply_list) > 0:
                 random.shuffle(supply_list)
 
-        self.homg.siren_first_filter(enemy_list, node_dict)
+        if self.siren_first_filter:
+            self.homg.siren_first_filter(enemy_list, node_dict)
 
         return sea_map, supply_list, enemy_list
 
@@ -903,7 +903,7 @@ class CombatModule(object):
         else:
             return 2
 
-    def merge_map(self, num=3, node_info = False):
+    def merge_map(self, num=3, node_info=False):
         # try to resolve the blinking yellow boundary by combining multiple maps
         # Create map
         Utils.update_screen()
@@ -926,7 +926,7 @@ class CombatModule(object):
         vote = np.zeros(shape=(*self.homg.get_map_shape(), types_of_node))
         counter = 0
 
-        #TODO: Find a better way to merge node_info instead of using the last node_info.
+        # TODO: Find a better way to merge node_info instead of using the last node_info.
 
         while counter < num:
             Utils.update_screen()

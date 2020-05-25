@@ -228,29 +228,43 @@ class HomographyTransform:
                        cur_x:cur_x + trans_consts.TILE_WIDTH]
                 # Get the coordinate of the center of a tile in the original space
 
-                crop_closed = crop
-                corner_w = int(0.2 * trans_consts.TILE_WIDTH)
-                corner_h = int(0.2 * trans_consts.TILE_HEIGHT)
+                free_tile_matched = False
 
-                corners = list()
-                corners.append(crop_closed[:corner_h, :corner_w])
-                corners.append(crop_closed[:corner_h, -1:-corner_w:-1])
-                corners.append(crop_closed[-1:-corner_h:-1, :corner_w])
-                corners.append(crop_closed[-1:-corner_h:-1, -1:-corner_w:-1])
+                if crop.shape[0] >= self.__free_tile_center_img.shape[0] and crop.shape[1] >= \
+                        self.__free_tile_center_img.shape[
+                            1]:
+                    res = cv2.matchTemplate(crop, self.__free_tile_center_img, cv2.TM_CCOEFF_NORMED)
+                    if np.max(res) > trans_consts.FREE_TILE_MATCH_THRESH:
+                        free_tile_matched = True
 
-                counter = 0
-                for corner in corners:
-                    if corner.shape[0] >= self.__free_tile_lu.shape[0] and corner.shape[1] >= self.__free_tile_lu.shape[
-                        1]:
-                        corner = cv2.resize(corner, (corner.shape[1] * 2, corner.shape[0] * 2)).astype(np.uint8)
-                        corner = cv2.morphologyEx(corner, cv2.MORPH_CLOSE,
-                                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
-                        res = cv2.matchTemplate(corner, free_tile_lu_scaled, cv2.TM_CCOEFF_NORMED)
-                        if np.count_nonzero(res >= trans_consts.FREE_TILE_MATCH_THRESH) > 0:
-                            counter += 1
-                    if counter > 1:
-                        sea_map[j, i] = trans_consts.MAP_FREE
-                        break
+                if free_tile_matched is False:
+                    crop_closed = crop
+                    corner_w = int(0.2 * trans_consts.TILE_WIDTH)
+                    corner_h = int(0.2 * trans_consts.TILE_HEIGHT)
+
+                    corners = list()
+                    corners.append(crop_closed[:corner_h, :corner_w])
+                    corners.append(crop_closed[:corner_h, -1:-corner_w:-1])
+                    corners.append(crop_closed[-1:-corner_h:-1, :corner_w])
+                    corners.append(crop_closed[-1:-corner_h:-1, -1:-corner_w:-1])
+
+                    counter = 0
+                    for corner in corners:
+                        if corner.shape[0] >= self.__free_tile_lu.shape[0] and corner.shape[1] >= \
+                                self.__free_tile_lu.shape[
+                                    1]:
+                            corner = cv2.resize(corner, (corner.shape[1] * 2, corner.shape[0] * 2)).astype(np.uint8)
+                            corner = cv2.morphologyEx(corner, cv2.MORPH_CLOSE,
+                                                      cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+                            res = cv2.matchTemplate(corner, free_tile_lu_scaled, cv2.TM_CCOEFF_NORMED)
+                            if np.count_nonzero(res >= trans_consts.FREE_TILE_MATCH_THRESH) > 0:
+                                counter += 1
+                        if counter > 1:
+                            free_tile_matched = True
+                            break
+
+                if free_tile_matched:
+                    sea_map[j, i] = trans_consts.MAP_FREE
 
                 # crop the perspective transformed color screen
                 color_crop = screen_trans[cur_y: cur_y + trans_consts.TILE_HEIGHT,
@@ -373,21 +387,27 @@ class HomographyTransform:
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
-                        node_dict[(i, j)] = NodeInfo()
+                        tmp = NodeInfo()
+                        tmp.set_l1_fleet()
+                        node_dict[(i, j)] = tmp
 
                 if corp.shape[0] >= e2_scaled.shape[0] and corp.shape[1] >= e2_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e2_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
-                        node_dict[(i, j)] = NodeInfo()
+                        tmp = NodeInfo()
+                        tmp.set_l2_fleet()
+                        node_dict[(i, j)] = tmp
 
                 if corp.shape[0] >= e3_scaled.shape[0] and corp.shape[1] >= e3_scaled.shape[1]:
                     res = cv2.matchTemplate(corp, e3_scaled, cv2.TM_CCOEFF_NORMED)
                     max_similarity = np.max(res)
                     if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
                         sea_map[i, j] = trans_consts.MAP_ENEMY
-                        node_dict[(i, j)] = NodeInfo()
+                        tmp = NodeInfo()
+                        tmp.set_l3_fleet()
+                        node_dict[(i, j)] = tmp
 
     def __match_character_tile_scale(self, screen, sea_map):
         """
@@ -561,12 +581,14 @@ class HomographyTransform:
             if node_info is not None:
                 if node_info.is_siren():
                     enemy_list.insert(insert_idx, enemy_list.pop(i))
-                    insert_idx+=1
+                    insert_idx += 1
+
 
 class NodeInfo:
     class _EnemyType(enum.Enum):
         SIREN = enum.auto()
-        UNKNOWN = enum.auto()
+        NORMAL = enum.auto()
+        BOSS = enum.auto()
 
     def __init__(self):
         self.reset()
@@ -580,5 +602,26 @@ class NodeInfo:
     def is_siren(self):
         return self._enemy_type == self._EnemyType.SIREN
 
+    def is_normal(self):
+        return self._enemy_type == self._EnemyType.NORMAL
+
+    def get_enemy_level(self):
+        if self._enemy_type == self._EnemyType.NORMAL:
+            return self._enemy_level
+        else:
+            return None
+
     def set_siren(self):
         self._enemy_type = self._EnemyType.SIREN
+
+    def set_l3_fleet(self):
+        self._enemy_type = self._EnemyType.NORMAL
+        self._enemy_level = 3
+
+    def set_l2_fleet(self):
+        self._enemy_type = self._EnemyType.NORMAL
+        self._enemy_level = 2
+
+    def set_l1_fleet(self):
+        self._enemy_type = self._EnemyType.NORMAL
+        self._enemy_level = 1
