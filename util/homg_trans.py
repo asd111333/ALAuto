@@ -572,17 +572,6 @@ class HomographyTransform:
             queue = new_queue
         return found_enemies, found_supplies
 
-    def siren_first_filter(self, enemy_list, node_dict):
-
-        insert_idx = 0
-
-        for i in range(len(enemy_list)):
-            node_info = node_dict.get(enemy_list[i])
-            if node_info is not None:
-                if node_info.is_siren():
-                    enemy_list.insert(insert_idx, enemy_list.pop(i))
-                    insert_idx += 1
-
 
 class NodeInfo:
     class _EnemyType(enum.Enum):

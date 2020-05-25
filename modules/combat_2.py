@@ -7,6 +7,7 @@ from util.utils import Region, Utils
 import numpy as np
 from util.homg_trans import HomographyTransform as Homg
 import util.homg_trans_consts as HomgConsts
+from util.homg_trans import NodeInfo
 
 
 class CombatModule(object):
@@ -46,7 +47,7 @@ class CombatModule(object):
         self.last_visited_idx = None
         self.homg = None
 
-        self.siren_first_filter = config.combat['siren_first']
+        self.siren_first_filter_enabled = config.combat['siren_first']
 
         self.kills_count = 0
         self.kills_before_boss = {
@@ -863,7 +864,7 @@ class CombatModule(object):
             if len(supply_list) > 0:
                 random.shuffle(supply_list)
 
-        if self.siren_first_filter:
+        if self.siren_first_filter_enabled:
             self.homg.siren_first_filter(enemy_list, node_dict)
 
         return sea_map, supply_list, enemy_list
@@ -1100,7 +1101,7 @@ class CombatModule(object):
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
-                            Utils.wait_till_stable(min_time=1.0, max_time=6.0)
+                            Utils.wait_till_stable(frame_count=5, min_time=2.0, max_time=6.0)
                             break
                     else:
                         Utils.wait_update_screen(1)
@@ -1162,6 +1163,18 @@ class CombatModule(object):
 
     def store_screen(self):
         self.homg.load_color_screen(Utils.color_screen)
+
+
+    def siren_first_filter(self, enemy_list, node_dict):
+
+        insert_idx = 0
+
+        for i in range(len(enemy_list)):
+            node_info = node_dict.get(enemy_list[i])
+            if node_info is not None:
+                if node_info.is_siren():
+                    enemy_list.insert(insert_idx, enemy_list.pop(i))
+                    insert_idx += 1
 
     # unused function
     def move_to_fleet(self):
