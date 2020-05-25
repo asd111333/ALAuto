@@ -294,6 +294,11 @@ class HomographyTransform:
                     node_dict[(j, i)] = tmp
                 elif np.count_nonzero(yellow_hsv_color_mask) > trans_consts.BOUNDARY_YELLOW_COUNT_THRESH:
                     sea_map[j, i] = trans_consts.MAP_SUPPLY
+                    # TODO: Ase mystery node for all supply nodes as a workaround for now
+                    # Add ammo node detection method in the futue
+                    tmp = NodeInfo()
+                    tmp.set_mystery()
+                    node_dict[(j, i)] = tmp
 
         self.__match_mob_tile_scale(self.__color_screen, sea_map, node_dict)
         self.__match_character_tile_scale(self.__color_screen, sea_map)
@@ -532,46 +537,6 @@ class HomographyTransform:
         persp_point = cv2.perspectiveTransform(point, self.__h_trans_m)[0][0]
         return persp_point
 
-    def bfs_search(self, sea_map, start_tile):
-        """
-        Do a BFS search on sea_map starting from start_tile.
-        The object on start_tile will be ignored.
-        :param sea_map: map created by create_map()
-        :param start_tile: the index of the tile to start BFS
-        :return: found_enemies and found_supplies, both sorted from the nearest to the farthest.
-        """
-
-        if start_tile[0] < 0 or start_tile[0] >= sea_map.shape[0] or start_tile[1] < 0 or start_tile[1] >= \
-                sea_map.shape[1]:
-            return [], []
-
-        pad_map = np.zeros(shape=(sea_map.shape[0] + 2, sea_map.shape[1] + 2))
-        pad_map[1:sea_map.shape[0] + 1, 1:sea_map.shape[1] + 1] = sea_map[:, :]
-        visited_map = np.zeros(shape=pad_map.shape)
-        queue = []
-        found_enemies = []
-        found_supplies = []
-
-        cur = (start_tile[0] + 1, start_tile[1] + 1)
-        queue.append(cur)
-        visited_map[cur] = -1
-        while len(queue) > 0:
-            new_queue = []
-            for cur in queue:
-                next_locs = [(cur[0] - 1, cur[1]), (cur[0] + 1, cur[1]), (cur[0], cur[1] - 1), (cur[0], cur[1] + 1)]
-                for i in range(4):
-                    loc = next_locs[i]
-                    if visited_map[loc] == 0:
-                        visited_map[loc] = i + 1
-                        if pad_map[loc] == trans_consts.MAP_ENEMY or pad_map[loc] == trans_consts.MAP_BOSS:
-                            found_enemies.append((loc[0] - 1, loc[1] - 1))
-                        elif pad_map[loc] == trans_consts.MAP_SUPPLY:
-                            found_supplies.append((loc[0] - 1, loc[1] - 1))
-                        elif pad_map[loc] == trans_consts.MAP_FREE or pad_map[loc] == trans_consts.MAP_CHARACTER:
-                            new_queue.append(loc)
-            queue = new_queue
-        return found_enemies, found_supplies
-
 
 class NodeInfo:
     class _EnemyType(enum.Enum):
@@ -579,20 +544,35 @@ class NodeInfo:
         NORMAL = enum.auto()
         BOSS = enum.auto()
 
+    class _SupplyType(enum.Enum):
+        AMMO = enum.auto()
+        MYSTERY = enum.auto()
+
     def __init__(self):
         self.reset()
 
     def reset(self):
-        self._is_ammo = False
-        self._is_supply = False
         self._enemy_type = None
         self._enemy_level = None
+        self._supply_type = None
+
+    def is_enemy(self):
+        return self.is_normal() or self.is_siren()
 
     def is_siren(self):
         return self._enemy_type == self._EnemyType.SIREN
 
     def is_normal(self):
         return self._enemy_type == self._EnemyType.NORMAL
+
+    def is_supply(self):
+        return self.is_ammo() or self.is_mystery()
+
+    def is_ammo(self):
+        return self._supply_type == self._SupplyType.AMMO
+
+    def is_mystery(self):
+        return self._supply_type == self._SupplyType.MYSTERY
 
     def get_enemy_level(self):
         if self._enemy_type == self._EnemyType.NORMAL:
@@ -601,16 +581,29 @@ class NodeInfo:
             return None
 
     def set_siren(self):
+        self.reset()
         self._enemy_type = self._EnemyType.SIREN
 
     def set_l3_fleet(self):
+        self.reset()
         self._enemy_type = self._EnemyType.NORMAL
         self._enemy_level = 3
 
     def set_l2_fleet(self):
+        self.reset()
         self._enemy_type = self._EnemyType.NORMAL
         self._enemy_level = 2
 
     def set_l1_fleet(self):
+        self.reset()
         self._enemy_type = self._EnemyType.NORMAL
         self._enemy_level = 1
+
+
+    def set_ammo(self):
+        self.reset()
+        self._supply_type = self._SupplyType.AMMO
+
+    def set_mystery(self):
+        self.reset()
+        self._supply_type = self._SupplyType.MYSTERY

@@ -4,7 +4,9 @@ import re
 from copy import deepcopy
 from util.logger import Logger
 import util.config_consts
+from util.utils import Utils
 
+get_cls_attr = Utils.get_cls_attrs
 
 class Config(object):
     """Config module that reads and validates the config to be passed to
@@ -170,7 +172,8 @@ class Config(object):
         self.combat['mob_fleet_no'] = self.try_cast_to_int(config.get('Combat', 'MobFleetNo'))
         self.combat['boss_fleet_no'] = self.try_cast_to_int(config.get('Combat', 'BossFleetNo'))
         self.combat['switch_fleet_after_combat'] = self.try_cast_to_int(config.get('Combat', 'SwitchFleetAfterCombat'))
-        self.combat['siren_first'] = config.getboolean('Combat', 'SirenFirst')
+        option_name, func_name = get_cls_attr(util.config_consts.CombatConsts.Filters, ret_vals=True)
+        self.combat['filter_exec_order'] = self._validate_list(config.get('Combat','FilterExecList'),valid_vals=option_name,map_vals=func_name,cast=lambda x: x.upper())
 
     def _read_headquarters(self, config):
         """Method to parse the Headquarters settings passed in config.
@@ -338,13 +341,13 @@ class Config(object):
         if s_list is not None:
             for i in range(len(s_list)):
                 s_list[i] = cast(s_list[i])
-        if valid_vals is not None:
-            for v in s_list:
-                if v not in valid_vals:
-                    raise ValueError()
-                if map_vals is not None:
-                    s_list[i] = map_vals[valid_vals.index(s_list[i])]
+                if valid_vals is not None:
+                    if s_list[i] not in valid_vals:
+                        raise ValueError()
+                    if map_vals is not None:
+                        s_list[i] = map_vals[valid_vals.index(s_list[i])]
         if unique and len(set(s_list)) != len(s_list):
             raise ValueError()
 
         return s_list
+

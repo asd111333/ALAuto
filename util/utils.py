@@ -3,6 +3,7 @@ import numpy
 import time
 import struct
 import os
+import inspect
 import lz4.block
 from imutils import contours, grab_contours
 from datetime import datetime, timedelta
@@ -604,7 +605,7 @@ class Utils(object):
             results_list = []
             while count > 0.80:
                 thread_list.append(Thread(target=cls.match_resize, args=(
-                results_list, template, count, comparison_method, similarity, useMask, mask)))
+                    results_list, template, count, comparison_method, similarity, useMask, mask)))
                 count -= 0.02
             Utils.multithreader(thread_list)
             for i in range(0, len(results_list)):
@@ -980,3 +981,22 @@ class Utils(object):
             t_prev = t_current
 
         return False
+
+    @staticmethod
+    def get_cls_attrs(cls,ret_vals=False):
+        base_attrs = dir(type('dummy', (object,), {}))
+        attr_list = list()
+        val_list = list()
+        if ret_vals:
+            for attr in inspect.getmembers(cls):
+                if attr[0] not in base_attrs:
+                    attr_list.append(attr[0])
+                    val_list.append(attr[1])
+            return attr_list, val_list
+        else:
+            for attr in inspect.getmembers(cls):
+                if attr[0] not in base_attrs:
+                    attr_list.append(attr[0])
+            return attr_list
+
+

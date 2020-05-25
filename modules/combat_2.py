@@ -47,7 +47,9 @@ class CombatModule(object):
         self.last_visited_idx = None
         self.homg = None
 
-        self.siren_first_filter_enabled = config.combat['siren_first']
+        self.filter_exec_list = list()
+        for func_name in config.combat['filter_exec_order']:
+            self.filter_exec_list.append(getattr(self, func_name))
 
         self.kills_count = 0
         self.kills_before_boss = {
@@ -661,7 +663,7 @@ class CombatModule(object):
                 self.battle_handler()
                 continue
 
-            boss_region = Utils.find_in_scaling_range("enemy/fleet_boss")
+            boss_region = Utils.find_in_scaling_range("enemy/fleet_boss",lowerEnd=0.6)
             if self.boss_fleet_found or boss_region:
                 Logger.log_msg("Boss fleet was found.")
                 self.boss_fleet_found = True
@@ -727,13 +729,13 @@ class CombatModule(object):
         """
         defeated_enemies = 0
         while defeated_enemies < num:
-            ret, boss_list, supply_list, enemy_list = self.find_enemy_fleet(not skip_if_boss)
+            ret, boss_list, node_list = self.find_enemy_fleet(not skip_if_boss)
             if ret is False:
                 return 0
             elif len(boss_list) > 0:
                 return -1
 
-            succeed, self.last_visited_idx = self.attack_mob(supply_list, enemy_list)
+            succeed, self.last_visited_idx = self.attack_mob(node_list)
             if succeed:
                 defeated_enemies += 1
             elif self.auto_switch_fleet():
@@ -748,8 +750,7 @@ class CombatModule(object):
         boss_fleet_found = False
         mob_fleet_found = False
         boss_list = list()
-        supply_list = list()
-        enemy_list = list()
+        node_list = list()
         curr_fleet_no = self.get_fleet_number()
         fleet_mov_ord = [curr_fleet_no]
         if self.mob_fleet_no not in fleet_mov_ord:
@@ -766,12 +767,12 @@ class CombatModule(object):
         while give_up is False:
             for swipe_steps in range(1, 4):
                 for j in range(4):
-                    sea_map, supply_list, enemy_list = self.update_map()
+                    sea_map, node_list = self.update_map()
                     if sea_map is None:
                         # Cannot find the anchor, try swiping the map
                         for k in range(4):
                             self.swipe_map()
-                            sea_map, supply_list, enemy_list = self.update_map()
+                            sea_map, node_list = self.update_map()
                             if sea_map is not None:
                                 break
 
@@ -783,7 +784,7 @@ class CombatModule(object):
                         if not ignore_boss and len(boss_list) > 0:
                             boss_fleet_found = True
                             break
-                        elif len(enemy_list) + len(supply_list) > 0:
+                        elif len(node_list) > 0:
                             mob_fleet_found = True
                             break
                         else:
@@ -813,14 +814,13 @@ class CombatModule(object):
         if give_up:
             return False, list(), list(), list()
         elif ignore_boss:
-            return True, list(), supply_list, enemy_list
+            return True, list(), node_list
         else:
             if boss_fleet_found:
                 self.boss_fleet_found = True
-            return True, boss_list, supply_list, enemy_list
+            return True, boss_list, node_list
 
-    def attack_mob(self, supply_list, enemy_list):
-        target_list = supply_list + enemy_list
+    def attack_mob(self, target_list):
         while len(target_list) > 0:
             target_index = target_list.pop(0)
             target_coord = self.tile_idx_to_map_coord(target_index)
@@ -832,7 +832,7 @@ class CombatModule(object):
                     return True, target_index
                 elif ret > 0:
                     if self.battle_handler():
-                        Utils.wait_till_stable(min_time=1.0, max_time=4.0)
+                        Utils.wait_till_stable(frame_count=5, min_time=1.0, max_time=6.0)
                         return True, target_index
                 else:
                     Utils.wait_till_stable(min_time=1, max_time=6.0)
@@ -849,25 +849,22 @@ class CombatModule(object):
 
         # Find character
         character_loc = np.where(sea_map == HomgConsts.MAP_CHARACTER)
-        enemy_list = []
-        supply_list = []
+        node_list = []
         if len(character_loc[0]) > 0:
             character_idx = (character_loc[0][0], character_loc[1][0])
-            enemy_list, supply_list = self.homg.bfs_search(sea_map, character_idx)
+            node_list = self.bfs_search(sea_map, character_idx)
         # If above failed, find all enemy and mysterious nodes
-        if len(enemy_list) + len(supply_list) == 0:
+        if len(node_list) == 0:
             # Shuffle the list. Hope this can decrease average retry time.
-            enemy_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, sea_map)
-            if len(enemy_list) > 0:
-                random.shuffle(enemy_list)
-            supply_list = self.find_objs_on_map(HomgConsts.MAP_SUPPLY, sea_map)
-            if len(supply_list) > 0:
-                random.shuffle(supply_list)
+            node_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, sea_map)
+            node_list += self.find_objs_on_map(HomgConsts.MAP_SUPPLY, sea_map)
+            if len(node_list) > 0:
+                random.shuffle(node_list)
 
-        if self.siren_first_filter_enabled:
-            self.siren_first_filter(enemy_list, node_dict)
+        for node_filter in self.filter_exec_list:
+            node_filter(node_list, node_dict, sea_map)
 
-        return sea_map, supply_list, enemy_list
+        return sea_map, node_list
 
     def tile_idx_to_map_coord(self, index):
         return self.homg.inv_transform_coord(self.homg.map_index_to_coord(index))
@@ -1062,7 +1059,7 @@ class CombatModule(object):
                 return 1
 
         self.protected_swipe(boss_region.x, boss_region.y, 960, 640, 300)
-        sea_map = self.merge_map()
+        sea_map, node_dict = self.merge_map(node_info=True)
         boss_index = self.find_objs_on_map(HomgConsts.MAP_BOSS, sea_map)
         if len(boss_index) > 0:
             boss_index = boss_index[0]
@@ -1071,8 +1068,10 @@ class CombatModule(object):
             return -1
 
         # BFS from the boss node
-        enemy_list, _ = self.homg.bfs_search(sea_map, boss_index)
+        node_list = self.bfs_search(sea_map, boss_index)
+        self.enemy_only_filter(node_list, node_dict)
         # sort enemy from the enemy with the farthest shortest path from boss to shortest shortest path from boss
+        enemy_list = node_list
         enemy_list.reverse()
         unreachable_enemy_list = self.find_objs_on_map(HomgConsts.MAP_ENEMY, sea_map)
         for enemy in unreachable_enemy_list:
@@ -1164,17 +1163,44 @@ class CombatModule(object):
     def store_screen(self):
         self.homg.load_color_screen(Utils.color_screen)
 
+    def bfs_search(self, sea_map, start_tile):
+        """
+        Do a BFS search on sea_map starting from start_tile.
+        The object on start_tile will be ignored.
+        :param sea_map: map created by create_map()
+        :param start_tile: the index of the tile to start BFS
+        :return: found_nodes sorted from the nearest to the farthest.
+        """
 
-    def siren_first_filter(self, enemy_list, node_dict):
+        if start_tile[0] < 0 or start_tile[0] >= sea_map.shape[0] or start_tile[1] < 0 or start_tile[1] >= \
+                sea_map.shape[1]:
+            return [], []
 
-        insert_idx = 0
+        pad_map = np.zeros(shape=(sea_map.shape[0] + 2, sea_map.shape[1] + 2))
+        pad_map[1:sea_map.shape[0] + 1, 1:sea_map.shape[1] + 1] = sea_map[:, :]
+        visited_map = np.zeros(shape=pad_map.shape)
+        queue = []
+        found_nodes = []
 
-        for i in range(len(enemy_list)):
-            node_info = node_dict.get(enemy_list[i])
-            if node_info is not None:
-                if node_info.is_siren():
-                    enemy_list.insert(insert_idx, enemy_list.pop(i))
-                    insert_idx += 1
+        cur = (start_tile[0] + 1, start_tile[1] + 1)
+        queue.append(cur)
+        visited_map[cur] = -1
+        while len(queue) > 0:
+            new_queue = []
+            for cur in queue:
+                next_locs = [(cur[0] - 1, cur[1]), (cur[0] + 1, cur[1]), (cur[0], cur[1] - 1), (cur[0], cur[1] + 1)]
+                for i in range(4):
+                    loc = next_locs[i]
+                    if visited_map[loc] == 0:
+                        visited_map[loc] = i + 1
+                        if pad_map[loc] == HomgConsts.MAP_ENEMY or pad_map[loc] == HomgConsts.MAP_BOSS or pad_map[loc] == HomgConsts.MAP_SUPPLY:
+                            found_nodes.append((loc[0] - 1, loc[1] - 1))
+                        elif pad_map[loc] == HomgConsts.MAP_FREE or pad_map[loc] == HomgConsts.MAP_CHARACTER:
+                            new_queue.append(loc)
+            queue = new_queue
+
+        return found_nodes
+
 
     # unused function
     def move_to_fleet(self):
@@ -1193,3 +1219,39 @@ class CombatModule(object):
             counter += 1
 
         return sea_map
+
+
+    # filters start here
+
+    def siren_first_filter(self, node_list, node_dict, sea_map):
+
+        insert_idx = 0
+
+        for i in range(len(node_list)):
+            node_info = node_dict.get(node_list[i])
+            if node_info is not None:
+                if node_info.is_siren():
+                    node_list.insert(insert_idx, node_list.pop(i))
+                    insert_idx += 1
+
+    def enemy_only_filter(self, node_list, node_dict, sea_map):
+
+        rm_num = 0
+
+        for i in range(len(node_list)):
+            node_info = node_dict.get(node_list[i-rm_num])
+            if node_info is not None:
+                if not node_info.is_enemy():
+                    node_list.pop(i-rm_num)
+                    rm_num += 1
+
+    def supply_first_filter(self, node_list, node_dict, sea_map):
+
+        insert_idx = 0
+
+        for i in range(len(node_list)):
+            node_info = node_dict.get(node_list[i])
+            if node_info is not None:
+                if node_info.is_supply():
+                    node_list.insert(insert_idx, node_list.pop(i))
+                    insert_idx += 1
