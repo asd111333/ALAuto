@@ -865,7 +865,7 @@ class CombatModule(object):
                 random.shuffle(supply_list)
 
         if self.siren_first_filter_enabled:
-            self.homg.siren_first_filter(enemy_list, node_dict)
+            self.siren_first_filter(enemy_list, node_dict)
 
         return sea_map, supply_list, enemy_list
 
