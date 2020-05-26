@@ -896,7 +896,9 @@ class CombatModule(object):
         return True
 
     def get_fleet_number(self):
-        if Utils.find_in_region("combat/fleet_1", self.region['fleet_no'], 0.9):
+        _, fleet_1_sim = Utils.find_in_region("combat/fleet_1", self.region['fleet_no'], raw=True)
+        _, fleet_2_sim = Utils.find_in_region("combat/fleet_2", self.region['fleet_no'], raw=True)
+        if fleet_1_sim > fleet_2_sim:
             return 1
         else:
             return 2

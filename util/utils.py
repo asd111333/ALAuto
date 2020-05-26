@@ -816,7 +816,7 @@ class Utils(object):
             return bgr_avg_color
 
     @classmethod
-    def find_in_region(cls, image, region, similarity=DEFAULT_SIMILARITY, color=False):
+    def find_in_region(cls, image, region, similarity=DEFAULT_SIMILARITY, color=False, raw=False):
         """Finds the specified image on the screen
 
         Args:
@@ -824,6 +824,7 @@ class Utils(object):
             similarity (float, optional): Defaults to DEFAULT_SIMILARITY.
                 Percentage in similarity that the image should at least match.
             color (boolean): match with color template
+            raw (boolean): ignore similatiry. Always return the region and similarity of the highest match
 
         Returns:
             Region: region object containing the location and size of the image
@@ -839,9 +840,13 @@ class Utils(object):
         tmp = cv2.minMaxLoc(match)
         value = tmp[1]
         location = tmp[3]
-        if value >= similarity:
-            return Region(location[0] + region.x, location[1] + region.y, width, height)
-        return None
+
+        if raw:
+            return Region(location[0] + region.x, location[1] + region.y, width, height), value
+        else:
+            if value >= similarity:
+                return Region(location[0] + region.x, location[1] + region.y, width, height)
+            return None
 
     @classmethod
     def menu_navigate(cls, image=None):
