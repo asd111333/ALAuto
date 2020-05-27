@@ -950,6 +950,13 @@ class Utils(object):
     @classmethod
     def wait_till_stable(cls, similarity=DEFAULT_SIMILARITY, min_time=0.5, max_time=None, frame_count=3):
         counter = 0
+
+        if max_time is None:
+            if min_time:
+                max_time = 4 * min_time
+            else:
+                max_time = 4.0
+
         t_start = datetime.now()
         t_prev = t_start
         t_current = t_start
@@ -967,7 +974,7 @@ class Utils(object):
             _screen_similarity = cv2.matchTemplate(_screen, screen_prev, cv2.TM_CCOEFF_NORMED)
             screen_prev = _screen
 
-            print(_screen_similarity[0][0])
+            Logger.log_debug('Last frame similarity: {}'.format(_screen_similarity[0][0]))
 
             if _screen_similarity[0][0] > similarity:
                 counter += 1
@@ -988,7 +995,7 @@ class Utils(object):
         return False
 
     @staticmethod
-    def get_cls_attrs(cls,ret_vals=False):
+    def get_cls_attrs(cls, ret_vals=False):
         base_attrs = dir(type('dummy', (object,), {}))
         attr_list = list()
         val_list = list()
@@ -1003,5 +1010,3 @@ class Utils(object):
                 if attr[0] not in base_attrs:
                     attr_list.append(attr[0])
             return attr_list
-
-

@@ -237,10 +237,11 @@ try:
             else:
                 Logger.log_msg("Nothing to do, will check again in a few minutes.")
                 Utils.kill_game()
-                Utils.script_sleep(600)
+                Utils.script_sleep(420,120)
                 Utils.restart_handler()
                 continue
         except FunctionTimedOut:
+            Logger.log_warning("Timeout occurred, restarting game")
             Utils.restart_handler()
 
 except KeyboardInterrupt:

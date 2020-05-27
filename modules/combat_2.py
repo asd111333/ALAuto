@@ -519,7 +519,7 @@ class CombatModule(object):
             Logger.log_msg("Skip touching stage info zone. Move to next enemy")
             return -1
 
-        Logger.log_msg("Moving towards objective.")
+        Logger.log_msg("Moving towards target.")
 
         location = (target_info[0], target_info[1])
         Utils.touch(location)
@@ -612,7 +612,7 @@ class CombatModule(object):
     def clear_map(self):
         """ Clears map.
         """
-        Logger.log_msg("Started map clear.")
+        Logger.log_msg("Start map clear.")
         Utils.wait_till_stable(max_time=2.5)
 
         while Utils.find("combat/fleet_lock", 0.99):
@@ -665,7 +665,7 @@ class CombatModule(object):
 
             boss_region = Utils.find_in_scaling_range("enemy/fleet_boss",lowerEnd=0.6)
             if self.boss_fleet_found or boss_region:
-                Logger.log_msg("Boss fleet was found.")
+                Logger.log_msg("Found boss fleet")
                 self.boss_fleet_found = True
 
                 if self.auto_switch_fleet():
@@ -893,17 +893,23 @@ class CombatModule(object):
             Utils.touch_randomly(self.region['button_switch_fleet'])
             Utils.wait_till_stable(max_time=2.0)
             self.store_screen()
+        Logger.log_msg('Switched to fleet {}'.format(fleet_number))
         return True
 
     def get_fleet_number(self):
         _, fleet_1_sim = Utils.find_in_region("combat/fleet_1", self.region['fleet_no'], raw=True)
+        Logger.log_debug("Fleet 1 similarity: {}".format(fleet_1_sim))
         _, fleet_2_sim = Utils.find_in_region("combat/fleet_2", self.region['fleet_no'], raw=True)
+        Logger.log_debug("Fleet 2 similarity: {}".format(fleet_2_sim))
         if fleet_1_sim > fleet_2_sim:
             return 1
         else:
             return 2
 
     def merge_map(self, num=3, node_info=False):
+
+        Logger.log_debug("Merge Map start")
+
         # try to resolve the blinking yellow boundary by combining multiple maps
         # Create map
         Utils.update_screen()
@@ -912,6 +918,8 @@ class CombatModule(object):
         prev_shape = (0, 0)
 
         if not self.homg.init_map_coordinate():
+            Logger.log_debug("Failed to find anchor")
+            Logger.log_debug("Merge Map failed")
             return None
 
         while self.homg.get_map_shape() != prev_shape:
@@ -946,14 +954,17 @@ class CombatModule(object):
         self.homg.debug_output(sea_map)
         Logger.log_debug("Read Map:")
         Logger.log_debug('\n{}'.format(np.array2string(sea_map)))
+        Logger.log_debug("Merge Map end")
         if node_info:
             return sea_map, node_dict
         else:
             return sea_map
 
     def swipe_map(self, times=1):
+        Logger.log_debug('Start swipe map')
         Utils.update_screen()
         old_fleet_num = self.get_fleet_number()
+        Logger.log_debug("Current fleet number: {}".format(old_fleet_num))
         while True:
             for i in range(times):
                 self.last_visited_idx = None
@@ -961,25 +972,32 @@ class CombatModule(object):
             if old_fleet_num == self.get_fleet_number():
                 break
             else:
+                Logger.log_warning('fleet number changed, switch back now')
                 self.switch_fleet(old_fleet_num)
         self.swipe_dir_idx = (self.swipe_dir_idx + 1) % 4
         Utils.wait_till_stable(max_time=2.0)
         self.store_screen()
+        Logger.log_debug('End swipe map')
 
     def protected_swipe(self, x1, y1, x2, y2, delay):
+        Logger.log_debug('Start protected swipe')
         Utils.update_screen()
         old_fleet_num = self.get_fleet_number()
+        Logger.log_debug("Current fleet number: {}".format(old_fleet_num))
         Utils.swipe(x1, y1, x2, y2, delay)
         Utils.wait_till_stable(max_time=2.0)
         if old_fleet_num != self.get_fleet_number():
+            Logger.log_warning('fleet number changed, switch back now')
             self.switch_fleet(old_fleet_num)
         self.store_screen()
+        Logger.log_debug('End protected swipe')
 
     def boss_swipe_resolver(self):
         """
         first boss fleet resolving method
         try swiping the map
         """
+        Logger.log_debug('Start boss swipe resolver')
         boss_swipe_counter = 0
         boss_swipe_counter_max = 4 * 3
         boss_region = Utils.find_in_scaling_range("enemy/fleet_boss")
@@ -987,6 +1005,10 @@ class CombatModule(object):
             self.swipe_map(1 + int(boss_swipe_counter / 4))
             boss_region = Utils.find_in_scaling_range("enemy/fleet_boss")
             boss_swipe_counter += 1
+        if boss_region:
+            Logger.log_debug('Boss swipe resolver successful')
+        else:
+            Logger.log_debug('Boss swipe resolver failed')
         return boss_region
 
     def boss_move_resolver(self, fleet_no):
@@ -994,6 +1016,7 @@ class CombatModule(object):
          second boss fleet resolving method
          try moving the fleet of fleet_no to a free tile to show the boss fleet
          """
+        Logger.log_debug('Start boss move resolver')
         if self.boss_fleet_no != fleet_no and self.mob_fleet_no != fleet_no:
             return None
 
@@ -1015,13 +1038,15 @@ class CombatModule(object):
         while boss_region is None:
             if not self.move_fleet_to_free_tile(free_list):
                 # no free tile to move to, resolving failed
+                Logger.log_debug('Boss move resolver failed because of no free tile')
                 return None
             else:
                 boss_region = Utils.find_in_scaling_range("enemy/fleet_boss")
+        Logger.log_debug('Boss move resolver successful')
         return boss_region
 
     def find_boss_fleet(self):
-        Logger.log_debug("boss fleet resolver.")
+        Logger.log_msg("Finding boss fleet")
         boss_fleet_resolve = True
         boss_region = None
 
@@ -1043,8 +1068,10 @@ class CombatModule(object):
             self.switch_fleet(self.boss_fleet_no)
 
         if boss_region is None:
+            Logger.log_warning("Failed to find boss fleet")
             return None
         else:
+            Logger.log_msg("Found Boss fleet ")
             return boss_region
 
     def attack_boss(self, boss_region):
@@ -1053,7 +1080,7 @@ class CombatModule(object):
         :param boss_region:
         :return: 1 if boss is defeated; 0 if boss is unreachable; -1 if boss is not on the map
         """
-        Logger.log_debug("Started boss function.")
+        Logger.log_msg("Attacking boss")
 
         if self.movement_handler([boss_region.x, boss_region.y]) > 0:
             if self.battle_handler(boss=True):
@@ -1066,7 +1093,8 @@ class CombatModule(object):
         if len(boss_index) > 0:
             boss_index = boss_index[0]
         else:
-            Logger.log_warning("Unable to find boos fleet on the map.")
+            Logger.log_warning("Unable to find boss")
+            Logger.log_warning("Failed to Attack boss")
             return -1
 
         # BFS from the boss node
@@ -1089,16 +1117,18 @@ class CombatModule(object):
                 if self.battle_handler(boss=True):
                     Utils.wait_till_stable(max_time=2.0)
                     self.exit = 1
+                    Logger.log_msg('Attacked boss successfully')
                     return 1
             elif ret == 0:
                 continue
             else:
-                Logger.log_msg("Unable to reach boss.")
+                Logger.log_warning("Unable to reach boss")
                 Utils.wait_till_stable(min_time=1, max_time=4)
                 # handle boss' coordinates
                 battle_end = False
                 while len(enemy_list) > 0:
                     enemy = enemy_list.pop(0)
+                    Logger.log_warning('Attacking fleets around boss')
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
@@ -1108,21 +1138,27 @@ class CombatModule(object):
                         Utils.wait_update_screen(1)
                 if not battle_end:
                     break
+        Logger.log_warning("Boss unreachable")
+        Logger.log_warning("Attack boss failed")
         return 0
 
     def attack_boss_resolver(self):
-
+        Logger.log_msg("Start attack boss resolver")
         if self.switch_fleet(
                 self.mob_fleet_no) and self.switch_fleet(
             self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
+            Logger.log_msg("Attack boss resolver successful")
             return True
         elif self.mob_move_resolver(self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
+            Logger.log_msg("Attack boss resolver successful")
             return True
 
         elif self.mob_move_resolver(self.mob_fleet_no) and self.switch_fleet(
                 self.boss_fleet_no) and self.auto_attack_fleet(1, skip_if_boss=False) == 1:
+            Logger.log_msg("Attack boss resolver successful")
             return True
         else:
+            Logger.log_msg("Attack boss resolver failed")
             return False
 
     def mob_move_resolver(self, fleet_no):
@@ -1227,14 +1263,19 @@ class CombatModule(object):
 
     def siren_first_filter(self, node_list, node_dict, sea_map):
 
+        Logger.log_debug('Start siren first filter')
+
         insert_idx = 0
 
         for i in range(len(node_list)):
             node_info = node_dict.get(node_list[i])
             if node_info is not None:
                 if node_info.is_siren():
+                    Logger.log_debug('Move ({}, {}) to head of list'.format(insert_idx[0], insert_idx[1]))
                     node_list.insert(insert_idx, node_list.pop(i))
                     insert_idx += 1
+
+        Logger.log_debug('End siren first filter')
 
     def enemy_only_filter(self, node_list, node_dict, sea_map):
 
