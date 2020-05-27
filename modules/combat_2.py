@@ -1271,7 +1271,7 @@ class CombatModule(object):
             node_info = node_dict.get(node_list[i])
             if node_info is not None:
                 if node_info.is_siren():
-                    Logger.log_debug('Move ({}, {}) to head of list'.format(insert_idx[0], insert_idx[1]))
+                    Logger.log_debug('Move ({}, {}) to head of list'.format(node_list[i][0], node_list[i][1]))
                     node_list.insert(insert_idx, node_list.pop(i))
                     insert_idx += 1
 
