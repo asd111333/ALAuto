@@ -10,18 +10,18 @@ class HomographyTransform:
     """
 
     def __init__(self):
-        self.__top_left_tile_x = None
-        self.__top_left_tile_y = None
-        self.__col_max_idx = None
-        self.__row_max_idx = None
-        self.__screen = None
-        self.__color_screen = None
-        self.__h_trans_m = None
-        self.__inv_h_trans_m = None
-        self.__h_trans_screen_size = None
-        self.__small_boss_icon = False
-        self.__debug_enabled = False
-        self.__debug_out_func = None
+        self._top_left_tile_x = None
+        self._top_left_tile_y = None
+        self._col_max_idx = None
+        self._row_max_idx = None
+        self._screen = None
+        self._color_screen = None
+        self._h_trans_m = None
+        self._inv_h_trans_m = None
+        self._h_trans_screen_size = None
+        self._small_boss_icon = False
+        self._debug_enabled = False
+        self._debug_out_func = None
 
         self.__free_tile_center_img = cv2.imread(trans_consts.FREE_TILE_CENTER_IMG, cv2.IMREAD_GRAYSCALE)
         self.__free_tile_imgs = [cv2.imread(trans_consts.FREE_TILES_IMG_UP, cv2.IMREAD_GRAYSCALE),
@@ -30,6 +30,63 @@ class HomographyTransform:
                                  cv2.imread(trans_consts.FREE_TILES_IMG_RIGHT, cv2.IMREAD_GRAYSCALE)]
 
         self.__free_tile_lu = cv2.imread(trans_consts.FREE_TILES_LU_IMG, cv2.IMREAD_GRAYSCALE)
+
+        self.__enemy1_obj = DetectionObjet()
+        self.__enemy1_obj.set_img_file_path(trans_consts.ENEMY_1_IMG)
+        self.__enemy1_obj.set_scale_base(trans_consts.ENEMY_SCALE)
+        self.__enemy1_obj.set_search_rect(trans_consts.ENEMY_SEARCH_RECT)
+        self.__enemy1_obj.set_search_offset(trans_consts.ENEMY_OFFSET)
+        self.__enemy1_obj.read_img_file()
+
+        self.__enemy2_obj = DetectionObjet()
+        self.__enemy2_obj.set_img_file_path(trans_consts.ENEMY_2_IMG)
+        self.__enemy2_obj.set_scale_base(trans_consts.ENEMY_SCALE)
+        self.__enemy2_obj.set_search_rect(trans_consts.ENEMY_SEARCH_RECT)
+        self.__enemy2_obj.set_search_offset(trans_consts.ENEMY_OFFSET)
+        self.__enemy2_obj.read_img_file()
+
+
+        self.__enemy3_obj = DetectionObjet()
+        self.__enemy3_obj.set_img_file_path(trans_consts.ENEMY_3_IMG)
+        self.__enemy3_obj.set_scale_base(trans_consts.ENEMY_SCALE)
+        self.__enemy3_obj.set_search_rect(trans_consts.ENEMY_SEARCH_RECT)
+        self.__enemy3_obj.set_search_offset(trans_consts.ENEMY_OFFSET)
+        self.__enemy3_obj.read_img_file()
+
+
+        self.__arrow_obj = DetectionObjet()
+        self.__arrow_obj.set_img_file_path(trans_consts.ARROW_IMG)
+        self.__arrow_obj.set_scale_base(trans_consts.ARROW_SCALE)
+        self.__arrow_obj.set_search_rect(trans_consts.ARROW_SEARCH_RECT)
+        self.__arrow_obj.set_search_offset(trans_consts.ARROW_OFFSET)
+        self.__arrow_obj.read_img_file()
+
+
+        self.__boss_obj = DetectionObjet()
+        self.__boss_obj.set_img_file_path(trans_consts.BOSS_IMG)
+        self.__boss_obj.set_scale_base(trans_consts.BOSS_SCALE)
+        self.__boss_obj.set_search_rect(trans_consts.BOSS_SEARCH_RECT)
+        self.__boss_obj.set_search_offset(trans_consts.BOSS_OFFSET)
+        self.__boss_obj.read_img_file()
+
+
+        self.__mystery_obj = DetectionObjet()
+        self.__mystery_obj.set_img_file_path(trans_consts.MYSTERY_IMG)
+        self.__mystery_obj.set_scale_base(trans_consts.MYSTERY_SCALE)
+        self.__mystery_obj.set_search_rect(trans_consts.MYSTERY_SEARCH_RECT)
+        self.__mystery_obj.set_search_offset(trans_consts.MYSTERY_OFFSET)
+        self.__mystery_obj.read_img_file()
+
+        self.__ammo_obj = DetectionObjet()
+        self.__ammo_obj.set_img_file_path(trans_consts.AMMO_IMG)
+        self.__ammo_obj.set_scale_base(trans_consts.AMMO_SCALE)
+        self.__ammo_obj.set_search_rect(trans_consts.AMMO_SEARCH_RECT)
+        self.__ammo_obj.set_search_offset(trans_consts.AMMO_OFFSET)
+        self.__ammo_obj.read_img_file()
+
+
+
+
         self.__arrow_img = cv2.imread(trans_consts.ARROW_IMG, cv2.IMREAD_COLOR)
         self.__enemy1_img = cv2.imread(trans_consts.ENEMY_1_IMG, cv2.IMREAD_COLOR)
         self.__enemy2_img = cv2.imread(trans_consts.ENEMY_2_IMG, cv2.IMREAD_COLOR)
@@ -78,9 +135,9 @@ class HomographyTransform:
             anchor_y = -min_y
             transl_transf[1, 2] += anchor_y
         shifted_transf = transl_transf.dot(h)
-        self.__h_trans_m = shifted_transf / shifted_transf[2, 2]
-        self.__inv_h_trans_m = cv2.invert(shifted_transf)[1]
-        self.__h_trans_screen_size = (anchor_x + max(max_x, src_w), anchor_y + max(max_y, src_h))
+        self._h_trans_m = shifted_transf / shifted_transf[2, 2]
+        self._inv_h_trans_m = cv2.invert(shifted_transf)[1]
+        self._h_trans_screen_size = (anchor_x + max(max_x, src_w), anchor_y + max(max_y, src_h))
 
     def use_small_boss_icon(self, val):
         """
@@ -88,22 +145,22 @@ class HomographyTransform:
         :param val: True if using small boss icon. False if using normal icon.
         :return:
         """
-        self.__small_boss_icon = val
+        self._small_boss_icon = val
 
     def enable_debug_log(self, enable, debug_out_func):
         if enable and debug_out_func is None:
             return False
-        self.__debug_enabled = enable
-        if self.__debug_enabled:
-            self.__debug_out_func = debug_out_func
+        self._debug_enabled = enable
+        if self._debug_enabled:
+            self._debug_out_func = debug_out_func
         return True
 
     def load_color_screen(self, color_screen):
         """
         Load the color screen.
         """
-        self.__color_screen = color_screen
-        self.__screen = cv2.cvtColor(color_screen, cv2.COLOR_BGR2GRAY)
+        self._color_screen = color_screen
+        self._screen = cv2.cvtColor(color_screen, cv2.COLOR_BGR2GRAY)
 
     def init_map_coordinate(self):
         """
@@ -115,11 +172,11 @@ class HomographyTransform:
         # crop the color screen
         free_tile_center = self.__free_tile_center_img
 
-        crop_color_screen = self.__color_screen[:][
+        crop_color_screen = self._color_screen[:][
                             trans_consts.MAP_CROP_TOP_LEFT[1]:trans_consts.MAP_CROP_BOTTOM_RIGHT[1],
                             trans_consts.MAP_CROP_TOP_LEFT[0]:trans_consts.MAP_CROP_BOTTOM_RIGHT[0]]
         # Warp source image to destination based on homography
-        screen_trans = cv2.warpPerspective(crop_color_screen, self.__h_trans_m, self.__h_trans_screen_size)
+        screen_trans = cv2.warpPerspective(crop_color_screen, self._h_trans_m, self._h_trans_screen_size)
         screen_edge = cv2.Canny(screen_trans, trans_consts.CV_CANNY_MIN, trans_consts.CV_CANNY_MAX)
 
         closing_kernel = trans_consts.CLOSING_KERNEL_MIN_SIZE
@@ -127,8 +184,8 @@ class HomographyTransform:
         screen_edge_closed = cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE, kernel)
         res = cv2.matchTemplate(screen_edge_closed, free_tile_center, cv2.TM_CCOEFF_NORMED)
         max_similarity = np.max(res)
-        if self.__debug_enabled:
-            self.__debug_out_func("free tile center", max_similarity)
+        if self._debug_enabled:
+            self._debug_out_func("free tile center", max_similarity)
         if max_similarity > trans_consts.FREE_TILE_MATCH_THRESH:
             loc = np.where(res == max_similarity)
             point = list(zip(*loc[::-1]))
@@ -177,14 +234,14 @@ class HomographyTransform:
             x, y = rects[pivot_idx]
 
         # Calculate how many tiles on the map and the coordinate of top left tile in homography space
-        self.__top_left_tile_x = int(x % trans_consts.TILE_WIDTH)
-        self.__top_left_tile_y = int(y % trans_consts.TILE_HEIGHT)
-        self.__row_max_idx = int(
-            (self.__h_trans_screen_size[
-                 1] - self.__top_left_tile_y + trans_consts.TILE_HEIGHT - 1) / trans_consts.TILE_HEIGHT)
-        self.__col_max_idx = int(
-            (self.__h_trans_screen_size[
-                 0] - self.__top_left_tile_x + trans_consts.TILE_WIDTH - 1) / trans_consts.TILE_WIDTH)
+        self._top_left_tile_x = int(x % trans_consts.TILE_WIDTH)
+        self._top_left_tile_y = int(y % trans_consts.TILE_HEIGHT)
+        self._row_max_idx = int(
+            (self._h_trans_screen_size[
+                 1] - self._top_left_tile_y + trans_consts.TILE_HEIGHT - 1) / trans_consts.TILE_HEIGHT)
+        self._col_max_idx = int(
+            (self._h_trans_screen_size[
+                 0] - self._top_left_tile_x + trans_consts.TILE_WIDTH - 1) / trans_consts.TILE_WIDTH)
 
         return True
 
@@ -193,7 +250,7 @@ class HomographyTransform:
          Return the shape of the map which will be returned in create_map()
          Dependencies: init_map_coordinate
          """
-        return (self.__row_max_idx, self.__col_max_idx)
+        return (self._row_max_idx, self._col_max_idx)
 
     def create_map(self, node_info=False):
         """
@@ -207,23 +264,23 @@ class HomographyTransform:
         node_dict = dict()
 
         # crop the color screen
-        crop_color_screen = self.__color_screen[:][
+        crop_color_screen = self._color_screen[:][
                             trans_consts.MAP_CROP_TOP_LEFT[1]:trans_consts.MAP_CROP_BOTTOM_RIGHT[1],
                             trans_consts.MAP_CROP_TOP_LEFT[0]:trans_consts.MAP_CROP_BOTTOM_RIGHT[0]]
         # Warp source image to destination based on homography
-        screen_trans = cv2.warpPerspective(crop_color_screen, self.__h_trans_m, self.__h_trans_screen_size)
+        screen_trans = cv2.warpPerspective(crop_color_screen, self._h_trans_m, self._h_trans_screen_size)
         screen_edge = cv2.Canny(screen_trans, trans_consts.CV_CANNY_MIN, trans_consts.CV_CANNY_MAX)
 
-        sea_map = np.zeros(shape=(self.__row_max_idx, self.__col_max_idx))
+        sea_map = np.zeros(shape=(self._row_max_idx, self._col_max_idx))
 
         free_tile_lu_scaled = cv2.resize(self.__free_tile_lu,
                                          (self.__free_tile_lu.shape[1] * 2, self.__free_tile_lu.shape[0] * 2)).astype(
             np.uint8)
 
-        for j in range(self.__row_max_idx):
-            for i in range(self.__col_max_idx):
-                cur_x = self.__top_left_tile_x + i * trans_consts.TILE_WIDTH
-                cur_y = self.__top_left_tile_y + j * trans_consts.TILE_HEIGHT
+        for j in range(self._row_max_idx):
+            for i in range(self._col_max_idx):
+                cur_x = self._top_left_tile_x + i * trans_consts.TILE_WIDTH
+                cur_y = self._top_left_tile_y + j * trans_consts.TILE_HEIGHT
                 crop = screen_edge[cur_y: cur_y + trans_consts.TILE_HEIGHT,
                        cur_x:cur_x + trans_consts.TILE_WIDTH]
                 # Get the coordinate of the center of a tile in the original space
@@ -300,13 +357,16 @@ class HomographyTransform:
                     tmp.set_mystery()
                     node_dict[(j, i)] = tmp
 
-        self.__match_mob_tile_scale(self.__color_screen, sea_map, node_dict)
-        self.__match_character_tile_scale(self.__color_screen, sea_map)
-        self.__match_boss_tile_scale(self.__color_screen, sea_map)
 
-        if self.__debug_enabled:
+
+        self.__match_mob_tile_scale(self._color_screen, sea_map, node_dict)
+        self.__match_character_tile_scale(self._color_screen, sea_map)
+        self.__match_boss_tile_scale(self._color_screen, sea_map)
+        self.__match_supply_tile_scale(self._color_screen, sea_map, node_dict)
+
+        if self._debug_enabled:
             self.debug_output(sea_map)
-            self.__debug_out_func('Read Map:\n{}'.format(np.array2string(sea_map)))
+            self._debug_out_func('Read Map:\n{}'.format(np.array2string(sea_map)))
 
         if node_info:
             return sea_map, node_dict
@@ -314,28 +374,28 @@ class HomographyTransform:
             return sea_map
 
     def debug_output(self, sea_map):
-        crop_color_screen = self.__color_screen[:][
+        crop_color_screen = self._color_screen[:][
                             trans_consts.MAP_CROP_TOP_LEFT[1]:trans_consts.MAP_CROP_BOTTOM_RIGHT[1],
                             trans_consts.MAP_CROP_TOP_LEFT[0]:trans_consts.MAP_CROP_BOTTOM_RIGHT[0]]
-        screen_trans = cv2.warpPerspective(crop_color_screen, self.__h_trans_m, self.__h_trans_screen_size)
+        screen_trans = cv2.warpPerspective(crop_color_screen, self._h_trans_m, self._h_trans_screen_size)
         screen_edge = cv2.Canny(screen_trans, trans_consts.CV_CANNY_MIN, trans_consts.CV_CANNY_MAX)
 
-        for i in range(self.__col_max_idx):
-            for j in range(self.__row_max_idx):
-                cur_x = self.__top_left_tile_x + i * trans_consts.TILE_WIDTH
-                cur_y = self.__top_left_tile_y + j * trans_consts.TILE_HEIGHT
+        for i in range(self._col_max_idx):
+            for j in range(self._row_max_idx):
+                cur_x = self._top_left_tile_x + i * trans_consts.TILE_WIDTH
+                cur_y = self._top_left_tile_y + j * trans_consts.TILE_HEIGHT
                 rect = np.array(
                     [[[cur_x, cur_y]], [[cur_x + trans_consts.TILE_WIDTH, cur_y]],
                      [[cur_x + trans_consts.TILE_WIDTH, cur_y + trans_consts.TILE_HEIGHT]],
                      [[cur_x, cur_y + trans_consts.TILE_HEIGHT]]],
                     dtype=np.float64)
-                rect = cv2.perspectiveTransform(rect, self.__inv_h_trans_m)
+                rect = cv2.perspectiveTransform(rect, self._inv_h_trans_m)
                 rect = rect.astype(int)
                 cv2.drawContours(crop_color_screen, [rect], -1, (255, 0, 0), 3)
 
                 dot = np.array(
                     [[[cur_x + trans_consts.TILE_WIDTH / 2, cur_y + trans_consts.TILE_HEIGHT / 2]]])
-                dot = cv2.perspectiveTransform(dot, self.__inv_h_trans_m)
+                dot = cv2.perspectiveTransform(dot, self._inv_h_trans_m)
                 dot = dot.astype(int)
 
                 if sea_map[j, i] == trans_consts.MAP_CHARACTER:
@@ -364,55 +424,29 @@ class HomographyTransform:
         :return:
         """
 
-        scaling_base = trans_consts.SCALING_BASE
+        ret = self.__enemy1_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_ENEMY
+        l1_idx_list = zip(*np.where(ret))
+        for pair in l1_idx_list:
+            tmp = NodeInfo()
+            tmp.set_l1_fleet()
+            node_dict[pair] = tmp
 
-        if self.__row_max_idx < 2:
-            return
-        for i in range(self.__row_max_idx):
-            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
-            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
-            dist = np.linalg.norm(p1 - p2, ord=2)
-            scale = dist / scaling_base
-            e1_scaled = cv2.resize(self.__enemy1_img, None, fx=scale, fy=scale)
-            e2_scaled = cv2.resize(self.__enemy2_img, None, fx=scale, fy=scale)
-            e3_scaled = cv2.resize(self.__enemy3_img, None, fx=scale, fy=scale)
-            search_square_edge = int(trans_consts.SCALED_ENEMY_MATCH_SQUARE_SIDE * scale)
-            search_x_offset = int(trans_consts.SCALED_ENEMY_X_OFFSET * scale)
-            search_y_offset = int(trans_consts.SCALED_ENEMY_Y_OFFSET * scale)
-            for j in range(self.__col_max_idx):
-                tile_center = self.map_index_to_coord((i, j))
-                tile_corner = np.subtract(tile_center, [trans_consts.TILE_WIDTH / 2, trans_consts.TILE_HEIGHT / 2])
-                org_tile_corner = np.array(self.inv_transform_coord(tile_corner), dtype=np.int)
-                org_tile_corner[0] += search_x_offset
-                org_tile_corner[1] += search_y_offset
-                corp = screen[org_tile_corner[1]:org_tile_corner[1] + search_square_edge,
-                       org_tile_corner[0]:org_tile_corner[0] + search_square_edge, :]
-                if corp.shape[0] >= e1_scaled.shape[0] and corp.shape[1] >= e1_scaled.shape[1]:
-                    res = cv2.matchTemplate(corp, e1_scaled, cv2.TM_CCOEFF_NORMED)
-                    max_similarity = np.max(res)
-                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        sea_map[i, j] = trans_consts.MAP_ENEMY
-                        tmp = NodeInfo()
-                        tmp.set_l1_fleet()
-                        node_dict[(i, j)] = tmp
+        ret = self.__enemy2_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_ENEMY
+        l2_idx_list = zip(*np.where(ret))
+        for pair in l2_idx_list:
+            tmp = NodeInfo()
+            tmp.set_l2_fleet()
+            node_dict[pair] = tmp
 
-                if corp.shape[0] >= e2_scaled.shape[0] and corp.shape[1] >= e2_scaled.shape[1]:
-                    res = cv2.matchTemplate(corp, e2_scaled, cv2.TM_CCOEFF_NORMED)
-                    max_similarity = np.max(res)
-                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        sea_map[i, j] = trans_consts.MAP_ENEMY
-                        tmp = NodeInfo()
-                        tmp.set_l2_fleet()
-                        node_dict[(i, j)] = tmp
-
-                if corp.shape[0] >= e3_scaled.shape[0] and corp.shape[1] >= e3_scaled.shape[1]:
-                    res = cv2.matchTemplate(corp, e3_scaled, cv2.TM_CCOEFF_NORMED)
-                    max_similarity = np.max(res)
-                    if max_similarity > trans_consts.SCALED_ENEMY_MATCH_THRESH:
-                        sea_map[i, j] = trans_consts.MAP_ENEMY
-                        tmp = NodeInfo()
-                        tmp.set_l3_fleet()
-                        node_dict[(i, j)] = tmp
+        ret = self.__enemy3_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_ENEMY
+        l3_idx_list = zip(*np.where(ret))
+        for pair in l3_idx_list:
+            tmp = NodeInfo()
+            tmp.set_l3_fleet()
+            node_dict[pair] = tmp
 
     def __match_character_tile_scale(self, screen, sea_map):
         """
@@ -424,33 +458,8 @@ class HomographyTransform:
         :return:
         """
 
-        scaling_base = trans_consts.SCALING_BASE
-
-        if self.__row_max_idx < 2:
-            return
-
-        for i in range(self.__row_max_idx):
-            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
-            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
-            dist = np.linalg.norm(p1 - p2, ord=2)
-            scale = dist / scaling_base
-            arrow = cv2.resize(self.__arrow_img, None, fx=scale, fy=scale)
-            search_square_edge = int(trans_consts.SCALED_ARROW_MATCH_SQUARE_SIDE * scale)
-            search_x_offset = int(trans_consts.SCALED_ARROW_X_OFFSET * scale)
-            search_y_offset = int(trans_consts.SCALED_ARROW_Y_OFFSET * scale)
-            for j in range(self.__col_max_idx):
-                tile_center = self.map_index_to_coord((i, j))
-                tile_corner = np.subtract(tile_center, [trans_consts.TILE_WIDTH / 2, trans_consts.TILE_HEIGHT / 2])
-                org_tile_corner = np.array(self.inv_transform_coord(tile_corner), dtype=np.int)
-                org_tile_corner[0] += search_x_offset
-                org_tile_corner[1] += search_y_offset
-                corp = screen[org_tile_corner[1]:org_tile_corner[1] + search_square_edge,
-                       org_tile_corner[0]:org_tile_corner[0] + search_square_edge, :]
-                if corp.shape[0] >= arrow.shape[0] and corp.shape[1] >= arrow.shape[1]:
-                    res = cv2.matchTemplate(corp, arrow, cv2.TM_CCOEFF_NORMED)
-                    max_similarity = np.max(res)
-                    if max_similarity > trans_consts.SCALED_ARROW_MATCH_THRESH:
-                        sea_map[i, j] = trans_consts.MAP_CHARACTER
+        ret = self.__arrow_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_CHARACTER
 
     def __match_boss_tile_scale(self, screen, sea_map):
         """
@@ -462,33 +471,26 @@ class HomographyTransform:
         :return:
         """
 
-        scaling_base = trans_consts.SCALING_BASE
+        ret = self.__boss_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_BOSS
 
-        if self.__row_max_idx < 2:
-            return
+    def __match_supply_tile_scale(self, screen, sea_map, node_dict):
 
-        for i in range(self.__row_max_idx):
-            p1 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 0))))
-            p2 = np.array(self.inv_transform_coord(self.map_index_to_coord((i, 1))))
-            dist = np.linalg.norm(p1 - p2, ord=2)
-            scale = dist / scaling_base
-            boss = cv2.resize(self.__boss_img, None, fx=scale, fy=scale)
-            for j in range(self.__col_max_idx):
-                cur_x = self.__top_left_tile_x + j * trans_consts.TILE_WIDTH
-                cur_y = self.__top_left_tile_y + i * trans_consts.TILE_HEIGHT
-                rect = np.array(
-                    [[self.inv_transform_coord([cur_x, cur_y])],
-                     [self.inv_transform_coord([cur_x + trans_consts.TILE_WIDTH, cur_y])],
-                     [self.inv_transform_coord([cur_x + trans_consts.TILE_WIDTH, cur_y + trans_consts.TILE_HEIGHT])],
-                     [self.inv_transform_coord([cur_x, cur_y + trans_consts.TILE_HEIGHT])]],
-                    dtype=np.float32)
-                x, y, w, h = cv2.boundingRect(rect)
-                corp = screen[y:y + h, x:x + w, :]
-                if corp.shape[0] >= boss.shape[0] and corp.shape[1] >= boss.shape[1]:
-                    res = cv2.matchTemplate(corp, boss, cv2.TM_CCOEFF_NORMED)
-                    max_similarity = np.max(res)
-                    if max_similarity > trans_consts.SCALED_ARROW_MATCH_THRESH:
-                        sea_map[i, j] = trans_consts.MAP_BOSS
+        ret = self.__ammo_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_SUPPLY
+        ammo_idx_list = zip(*np.where(ret))
+        for pair in ammo_idx_list:
+            tmp = NodeInfo()
+            tmp.set_ammo()
+            node_dict[pair] = tmp
+
+        ret = self.__mystery_obj.match_objects(screen, self)
+        sea_map[ret] = trans_consts.MAP_SUPPLY
+        mystery_idx_list = zip(*np.where(ret))
+        for pair in mystery_idx_list:
+            tmp = NodeInfo()
+            tmp.set_mystery()
+            node_dict[pair] = tmp
 
     def coord_to_map_index(self, coord):
         """
@@ -497,8 +499,8 @@ class HomographyTransform:
         :param coord: coordinate in the transformed space
         :return: tile index
         """
-        col = int((coord[0] - self.__top_left_tile_x) / trans_consts.TILE_WIDTH)
-        row = int((coord[1] - self.__top_left_tile_y) / trans_consts.TILE_HEIGHT)
+        col = int((coord[0] - self._top_left_tile_x) / trans_consts.TILE_WIDTH)
+        row = int((coord[1] - self._top_left_tile_y) / trans_consts.TILE_HEIGHT)
         return [row, col]
 
     def map_index_to_coord(self, index):
@@ -508,8 +510,8 @@ class HomographyTransform:
         :param index: tile index
         :return: coordinate of the tile in the transformed space.
         """
-        x = self.__top_left_tile_x + index[1] * trans_consts.TILE_WIDTH + trans_consts.TILE_WIDTH / 2
-        y = self.__top_left_tile_y + index[0] * trans_consts.TILE_HEIGHT + trans_consts.TILE_HEIGHT / 2
+        x = self._top_left_tile_x + index[1] * trans_consts.TILE_WIDTH + trans_consts.TILE_WIDTH / 2
+        y = self._top_left_tile_y + index[0] * trans_consts.TILE_HEIGHT + trans_consts.TILE_HEIGHT / 2
         return [x, y]
 
     def inv_transform_coord(self, coord):
@@ -520,7 +522,7 @@ class HomographyTransform:
         :return: point in the original space
         """
         point = np.array([[coord]], dtype=np.float32)
-        inv_persp_point = cv2.perspectiveTransform(point, self.__inv_h_trans_m)[0][0]
+        inv_persp_point = cv2.perspectiveTransform(point, self._inv_h_trans_m)[0][0]
         inv_persp_point[0] += trans_consts.MAP_CROP_TOP_LEFT[0]
         inv_persp_point[1] += trans_consts.MAP_CROP_TOP_LEFT[1]
         return inv_persp_point
@@ -534,7 +536,7 @@ class HomographyTransform:
         """
         point = np.array([[[coord[0] - trans_consts.MAP_CROP_TOP_LEFT[0],
                             coord[1] - trans_consts.MAP_CROP_TOP_LEFT[1]]]])
-        persp_point = cv2.perspectiveTransform(point, self.__h_trans_m)[0][0]
+        persp_point = cv2.perspectiveTransform(point, self._h_trans_m)[0][0]
         return persp_point
 
 
@@ -599,7 +601,6 @@ class NodeInfo:
         self._enemy_type = self._EnemyType.NORMAL
         self._enemy_level = 1
 
-
     def set_ammo(self):
         self.reset()
         self._supply_type = self._SupplyType.AMMO
@@ -607,3 +608,85 @@ class NodeInfo:
     def set_mystery(self):
         self.reset()
         self._supply_type = self._SupplyType.MYSTERY
+
+
+class DetectionObjet:
+    def __init__(self):
+        self._img_path = None
+        self._img = None
+        self._scale_base = None
+        self._search_rect = [1, 1]
+        self._search_offset = [0, 0]
+        self._match_threshold = 0.9
+
+    def set_img_file_path(self, path):
+        self._img_path = path
+
+    def set_scale_base(self, base):
+        self._scale_base = base
+
+    def set_search_rect(self, rect):
+        self._search_rect = rect
+
+    def set_search_offset(self, offset):
+        self._search_offset = offset
+
+    def set_match_threshold(self, threshold):
+        self._match_threshold = threshold
+
+    def read_img_file(self):
+        self._img = cv2.imread(self._img_path, cv2.IMREAD_COLOR)
+
+    def match_objects(self, color_screen, homg):
+
+        match_map = np.zeros(homg.get_map_shape(),dtype=bool)
+
+        for i in range(homg._row_max_idx):
+            p1 = np.array(homg.inv_transform_coord(
+                [homg._top_left_tile_x, homg._top_left_tile_y + (i + 1) * trans_consts.TILE_HEIGHT]))
+            p2 = np.array(homg.inv_transform_coord([homg._top_left_tile_x + trans_consts.TILE_WIDTH,
+                                                    homg._top_left_tile_y + (i + 1) * trans_consts.TILE_HEIGHT]))
+            s1 = np.array(homg.inv_transform_coord(
+                [homg._top_left_tile_x, homg._top_left_tile_y + (i + 1) * trans_consts.TILE_HEIGHT]))
+            s2 = np.array(homg.inv_transform_coord(
+                [homg._top_left_tile_x, homg._top_left_tile_y + (i + 2) * trans_consts.TILE_HEIGHT]))
+            real_tile_width = p2[0] - p1[0]
+            real_tile_height = s2[1] - s1[1]
+            ratio = real_tile_width / self._scale_base
+            w_half = trans_consts.TILE_WIDTH * self._search_rect[0] / 2
+            h_half = trans_consts.TILE_HEIGHT * self._search_rect[1] / 2
+            scaled_x_offset = real_tile_width * self._search_offset[0]
+            scaled_y_offset = real_tile_height * self._search_offset[1]
+            scaled_img = cv2.resize(self._img, None, fx=ratio, fy=ratio)
+            for j in range(homg._col_max_idx):
+                c = homg.map_index_to_coord([i, j])
+                rect = np.array(
+                    [[homg.inv_transform_coord([c[0] - w_half, c[1] - h_half])],
+                     [homg.inv_transform_coord([c[0] + w_half, c[1] - h_half])],
+                     [homg.inv_transform_coord([c[0] + w_half, c[1] + h_half])],
+                     [homg.inv_transform_coord([c[0] - w_half, c[1] + h_half])]],
+                    dtype=np.float32)
+                x, y, w, h = cv2.boundingRect(rect)
+                x += scaled_x_offset
+                y += scaled_y_offset
+
+                x1 = int(x)
+                x1 = x1 if x1 < color_screen.shape[1] else color_screen.shape[1]
+                x2 = int(x + w)
+                x2 = x2 if x2 < color_screen.shape[1] else color_screen.shape[1]
+                y1 = int(y)
+                y1 = y1 if y1 < color_screen.shape[0] else color_screen.shape[0]
+                y2 = int(y + h)
+                y2 = y2 if y2 < color_screen.shape[0] else color_screen.shape[0]
+
+                if x1>=0 and x2>=0 and y1>=0 and y2>=0:
+                    corp = color_screen[y1:y2, x1:x2, :]
+
+                    if corp.shape[0] >= scaled_img.shape[0] and corp.shape[1] >= scaled_img.shape[1]:
+                        res = cv2.matchTemplate(corp, scaled_img, cv2.TM_CCOEFF_NORMED)
+                        max_similarity = np.max(res)
+                        if max_similarity > self._match_threshold:
+                            match_map[i, j] = 1
+
+
+        return match_map

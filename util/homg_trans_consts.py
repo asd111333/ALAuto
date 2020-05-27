@@ -14,6 +14,8 @@ ENEMY_2_IMG = 'assets/map_detection/e2.png'
 ENEMY_3_IMG = 'assets/map_detection/e3.png'
 ARROW_IMG = 'assets/map_detection/arrow.png'
 BOSS_IMG = 'assets/map_detection/boss.png'
+MYSTERY_IMG = 'assets/map_detection/mystery.png'
+AMMO_IMG = 'assets/map_detection/ammo.png'
 
 MAP_OBJ_TYPES = 6
 # Constants used in the returned map
@@ -70,3 +72,26 @@ SCALED_ENEMY_MATCH_SQUARE_SIDE = 80
 SCALED_ENEMY_X_OFFSET = -1 / 4 * SCALED_ENEMY_MATCH_SQUARE_SIDE
 SCALED_ENEMY_Y_OFFSET = -4 / 5 * SCALED_ENEMY_MATCH_SQUARE_SIDE
 SCALED_ENEMY_MATCH_THRESH = 0.9
+
+
+
+ARROW_SCALE = 195
+ARROW_OFFSET = [0, -1.8]
+ARROW_SEARCH_RECT = [0.75, 0.75]
+
+BOSS_SCALE = 195
+BOSS_OFFSET = [0, 0]
+BOSS_SEARCH_RECT = [1, 1]
+
+ENEMY_SCALE = 195
+ENEMY_OFFSET = [-0.4, -0.65]
+ENEMY_SEARCH_RECT = [0.75, 0.75]
+
+MYSTERY_SCALE = 208
+MYSTERY_OFFSET = [0, -0.5]
+MYSTERY_SEARCH_RECT = [1, 1]
+
+
+AMMO_SCALE = 215
+AMMO_OFFSET = [0, -0.5]
+AMMO_SEARCH_RECT = [1, 1]
