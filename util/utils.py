@@ -111,7 +111,7 @@ class Utils(object):
             Adb.exec_out('rm /data/local/tmp/ascreencap')
             cpuArc = Adb.exec_out('getprop ro.product.cpu.abi').decode('utf-8').strip()
             sdkVer = int(Adb.exec_out('getprop ro.build.version.sdk').decode('utf-8').strip())
-            ascreencaplib = 'ascreencap_{}'.format(cpuArc)
+            ascreencaplib = os.path.join('ascreencap', 'ascreencap_{}'.format(cpuArc))
             if sdkVer in range(21, 26) and os.path.isfile(ascreencaplib):
                 Adb.cmd('push {} /data/local/tmp/ascreencap'.format(ascreencaplib))
             else:
