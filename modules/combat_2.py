@@ -35,6 +35,7 @@ class CombatModule(object):
         self.exit = 0
         self.combats_done = 0
         self.swipe_dir_idx = 0
+        self.total_map_swipes = 0
         self.boss_fleet_found = False
         self.sea_map = None
         self.boss_defeated = False
@@ -122,10 +123,10 @@ class CombatModule(object):
                 free it and 5 if fleet was defeated.
         """
         self.exit = 0
-        self.start_time = datetime.now()
         self.combats_done = 0
         self.kills_count = 0
         self.swipe_dir_idx = 0
+        self.total_map_swipes = 0
         self.boss_fleet_found = False
         self.sea_map = None
         self.boss_defeated = False
@@ -364,13 +365,13 @@ class CombatModule(object):
                     if not self.retirement_module.retirement_logic_wrapper(forced=True):
                         retirement_failed = True
                 else:
-                    self.retreat_handler()
+                    self.quit_battle_handler()
                     return False
             elif Utils.find("combat/alert_morale_low"):
                 if self.config.combat['ignore_morale']:
                     Utils.find_and_touch("menu/button_confirm")
                 else:
-                    self.retreat_handler()
+                    self.quit_battle_handler()
                     return False
             elif Utils.find("combat/combat_pause", 0.7):
                 Logger.log_warning(
@@ -440,6 +441,7 @@ class CombatModule(object):
                     confirmed_fight = True
                     Utils.touch_randomly(self.region["combat_end_confirm"])
                     if boss:
+                        self.boss_defeated = True
                         return True
                     Utils.wait_till_stable(max_time=3.0)
                     # Utils.wait_update_screen(3)
@@ -579,7 +581,7 @@ class CombatModule(object):
 
         return -2
 
-    def retreat_handler(self):
+    def quit_battle_handler(self):
         """ Retreats if necessary.
         """
         while True:
@@ -628,9 +630,9 @@ class CombatModule(object):
         if self.config.combat["hide_subs_hunting_range"]:
             Utils.script_sleep(0.5)
             Utils.touch_randomly(self.region["open_strategy_menu"])
-            Utils.script_sleep()
+            Utils.script_sleep(0.5)
             Utils.touch_randomly(self.region["disable_subs_hunting_radius"])
-            Utils.script_sleep()
+            Utils.script_sleep(0.5)
             Utils.touch_randomly(self.region["close_strategy_menu"])
 
         if self.boss_fleet_no != self.mob_fleet_no:
@@ -642,6 +644,11 @@ class CombatModule(object):
             self.store_screen()
 
             if self.boss_defeated:
+                self.exit = 1
+                break
+
+            if Utils.find("menu/attack"):
+                Logger.log_msg("Probably defeated boss. Assume combat done successfully")
                 self.exit = 1
                 break
 
@@ -699,14 +706,23 @@ class CombatModule(object):
                             self.exit = 4
                             break
 
+            if self.boss_defeated:
+                self.exit = 1
+                break
+
             self.auto_switch_fleet()
 
             ret = self.auto_attack_fleet(1, skip_if_boss=True)
+
             if ret == 0:
                 self.exit = 4
                 break
 
-        self.retreat_handler()
+            if self.boss_defeated:
+                self.exit = 1
+                break
+
+        self.quit_battle_handler()
         return True
 
     def auto_switch_fleet(self):
@@ -771,12 +787,12 @@ class CombatModule(object):
         while give_up is False:
             for swipe_steps in range(1, 4):
                 for j in range(4):
-                    sea_map, node_list = self.update_map()
+                    sea_map, node_list = self.update_map_view()
                     if sea_map is None:
                         # Cannot find the anchor, try swiping the map
                         for k in range(4):
                             self.swipe_map()
-                            sea_map, node_list = self.update_map()
+                            sea_map, node_list = self.update_map_view()
                             if sea_map is not None:
                                 break
 
@@ -844,7 +860,7 @@ class CombatModule(object):
                         return False, None
         return False, None
 
-    def update_map(self):
+    def update_map_view(self):
         ret = self.merge_map(node_info=True)
         if ret is None:
             return None, list(), list()
@@ -979,6 +995,7 @@ class CombatModule(object):
                 Logger.log_warning('fleet number changed, switch back now')
                 self.switch_fleet(old_fleet_num)
         self.swipe_dir_idx = (self.swipe_dir_idx + 1) % 4
+        self.total_map_swipes += 1
         Utils.wait_till_stable(max_time=2.0)
         self.store_screen()
         Logger.log_debug('End swipe map')
@@ -1279,6 +1296,18 @@ class CombatModule(object):
                     insert_idx += 1
 
         Logger.log_debug('End siren first filter')
+
+    def siren_only_first_6_swipes_filter(self, node_list, node_dict, sea_map):
+
+        if self.total_map_swipes < 6:
+            rm_num = 0
+
+            for i in range(len(node_list)):
+                node_info = node_dict.get(node_list[i - rm_num])
+                if node_info is not None:
+                    if not node_info.is_siren():
+                        node_list.pop(i - rm_num)
+                        rm_num += 1
 
     def enemy_only_filter(self, node_list, node_dict, sea_map):
 

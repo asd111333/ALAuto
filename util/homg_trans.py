@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import enum
+import threading
 import util.homg_trans_consts as trans_consts
 
 
@@ -61,10 +62,9 @@ class HomographyTransform:
         self._boss_obj.set_search_offset(trans_consts.BOSS_OFFSET)
         self._boss_obj.read_img_file()
 
-
         self._small_boss_obj = DetectionObjet()
         self._small_boss_obj.set_img_file_path(trans_consts.BOSS_IMG)
-        self._small_boss_obj.set_scale_base(trans_consts.BOSS_SCALE*2)
+        self._small_boss_obj.set_scale_base(trans_consts.BOSS_SCALE * 2)
         self._small_boss_obj.set_search_rect(trans_consts.BOSS_SEARCH_RECT)
         self._small_boss_obj.set_search_offset(trans_consts.BOSS_OFFSET)
         self._small_boss_obj.read_img_file()
@@ -343,10 +343,44 @@ class HomographyTransform:
                     tmp.set_mystery()
                     node_dict[(j, i)] = tmp
 
-        self._match_mob_tile_scale(self._color_screen, sea_map, node_dict)
-        self._match_character_tile_scale(self._color_screen, sea_map)
-        self._match_boss_tile_scale(self._color_screen, sea_map)
-        self._match_supply_tile_scale(self._color_screen, sea_map, node_dict)
+        match_supply_d = threading.local()
+        match_supply_d.node_dict = node_dict
+        match_supply_d.sea_map = sea_map
+        match_supply_thread = threading.Thread(target=self._match_supply_tile_scale, args=(
+            self._color_screen, match_supply_d.sea_map, match_supply_d.node_dict))
+        match_supply_thread.start()
+
+        match_mob_d = threading.local()
+        match_mob_d.node_dict = node_dict
+        match_mob_d.sea_map = sea_map
+        match_mob_thread = threading.Thread(target=self._match_mob_tile_scale,
+                                            args=(self._color_screen, match_mob_d.sea_map, match_mob_d.node_dict))
+        match_mob_thread.start()
+
+        match_character_d = threading.local()
+        match_character_d.node_dict = node_dict
+        match_character_d.sea_map = sea_map
+        match_character_thread = threading.Thread(target=self._match_character_tile_scale, args=(
+        self._color_screen, match_character_d.sea_map, match_character_d.node_dict))
+        match_character_thread.start()
+
+        match_boss_d = threading.local()
+        match_boss_d.node_dict = node_dict
+        match_boss_d.sea_map = sea_map
+        match_boss_thread = threading.Thread(target=self._match_boss_tile_scale,
+                                             args=(self._color_screen, match_boss_d.sea_map, match_boss_d.node_dict))
+        match_boss_thread.start()
+
+        match_supply_thread.join()
+        np.putmask(sea_map,match_supply_d.sea_map!=trans_consts.MAP_OBSTACLE,match_supply_d.sea_map)
+        match_mob_thread.join()
+        np.putmask(sea_map,match_mob_d.sea_map!=trans_consts.MAP_OBSTACLE,match_mob_d.sea_map)
+        match_character_thread.join()
+        np.putmask(sea_map, match_character_d.sea_map != trans_consts.MAP_OBSTACLE, match_character_d.sea_map)
+        match_boss_thread.join()
+        np.putmask(sea_map, match_boss_d.sea_map != trans_consts.MAP_OBSTACLE, match_boss_d.sea_map)
+        node_dict = {**node_dict, **match_supply_d.node_dict, **match_mob_d.node_dict, **match_character_d.node_dict,
+                     **match_boss_d.node_dict}
 
         if self._debug_enabled:
             self.debug_output(sea_map)
@@ -383,13 +417,15 @@ class HomographyTransform:
                 dot = dot.astype(int)
 
                 if sea_map[j, i] == trans_consts.MAP_CHARACTER:
-                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (255, 0, 255), thickness=3)
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (255, 0, 0), thickness=3)
                 if sea_map[j, i] == trans_consts.MAP_FREE:
                     cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 0), thickness=3)
                 if sea_map[j, i] == trans_consts.MAP_SUPPLY:
                     cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 255, 255), thickness=3)
                 if sea_map[j, i] == trans_consts.MAP_ENEMY:
                     cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (0, 0, 255), thickness=3)
+                if sea_map[j, i] == trans_consts.MAP_BOSS:
+                    cv2.circle(crop_color_screen, tuple(dot[0][0]), 3, (255, 0, 255), thickness=3)
 
         cv2.imwrite("debug_color_trans.png", screen_trans)
         cv2.imwrite("debug_edge.png", cv2.morphologyEx(screen_edge, cv2.MORPH_CLOSE,
@@ -432,7 +468,7 @@ class HomographyTransform:
             tmp.set_l3_fleet()
             node_dict[pair] = tmp
 
-    def _match_character_tile_scale(self, screen, sea_map):
+    def _match_character_tile_scale(self, screen, sea_map,node_dict):
         """
         Find the tile where the character is located.
         Result will write into the corresponded tile in sea_map.
@@ -445,7 +481,7 @@ class HomographyTransform:
         ret = self._arrow_obj.match_objects(screen, self)
         sea_map[ret] = trans_consts.MAP_CHARACTER
 
-    def _match_boss_tile_scale(self, screen, sea_map):
+    def _match_boss_tile_scale(self, screen, sea_map, node_dict):
         """
         Find the tile where the character is located.
         Result will write into the corresponded tile in sea_map.
@@ -459,6 +495,11 @@ class HomographyTransform:
         else:
             ret = self._boss_obj.match_objects(screen, self)
         sea_map[ret] = trans_consts.MAP_BOSS
+        boss_idx_list = zip(*np.where(ret))
+        for pair in boss_idx_list:
+            tmp = NodeInfo()
+            tmp.set_boss()
+            node_dict[pair] = tmp
 
     def _match_supply_tile_scale(self, screen, sea_map, node_dict):
 
@@ -587,6 +628,10 @@ class NodeInfo:
         self._enemy_type = self._EnemyType.NORMAL
         self._enemy_level = 1
 
+    def set_boss(self):
+        self.reset()
+        self._enemy_type = self._EnemyType.BOSS
+
     def set_ammo(self):
         self.reset()
         self._supply_type = self._SupplyType.AMMO
@@ -648,8 +693,8 @@ class DetectionObjet:
                 c = homg.map_index_to_coord([i, j])
                 trans_c = np.array(homg.inv_transform_coord(c))
 
-                x = trans_c[0]+scaled_x_offset-search_width/2
-                y = trans_c[1]+scaled_y_offset-search_height/2
+                x = trans_c[0] + scaled_x_offset - search_width / 2
+                y = trans_c[1] + scaled_y_offset - search_height / 2
 
                 x1 = int(x)
                 x1 = x1 if x1 < color_screen.shape[1] else color_screen.shape[1]
@@ -660,7 +705,7 @@ class DetectionObjet:
                 y2 = int(y + search_height)
                 y2 = y2 if y2 < color_screen.shape[0] else color_screen.shape[0]
 
-                if x1 >= 0 and x2 >= 0 and y1 >= 0 and y2 >= 0 and x2>x1 and y2>y1:
+                if x1 >= 0 and x2 >= 0 and y1 >= 0 and y2 >= 0 and x2 > x1 and y2 > y1:
                     crop = color_screen[y1:y2, x1:x2, :]
 
                     if crop.shape[0] >= scaled_img.shape[0] and crop.shape[1] >= scaled_img.shape[1]:
