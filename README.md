@@ -2,6 +2,10 @@
 Please use ALAuto_test.py instead of ALAuto.py and have Tesseract installed.  
 Launch ALAuto_test.py with -d to show debug messages.
 
+### 5/28
+
+- Slightly optimized
+- Added SIREN_ONLY_FIRST_6_SWIPES to config.ini
 
 ### 5/26
 
