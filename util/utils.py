@@ -417,8 +417,7 @@ class Utils(object):
 
         while len(oil) < 5:
             _res = int(cls.read_numbers(970, 38, 101, 36))
-            if last_ocr == '' or abs(_res - last_ocr) < 600:
-                oil.append(_res)
+            oil.append(_res)
 
         last_ocr = max(set(oil), key=oil.count)
         Logger.log_debug("Current oil: " + str(last_ocr))

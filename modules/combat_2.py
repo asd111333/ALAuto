@@ -1120,7 +1120,7 @@ class CombatModule(object):
 
         # BFS from the boss node
         node_list = self.bfs_search(sea_map, boss_index)
-        self.enemy_only_filter(node_list, node_dict)
+        self.enemy_only_filter(node_list, node_dict, sea_map)
         # sort enemy from the enemy with the farthest shortest path from boss to shortest shortest path from boss
         enemy_list = node_list
         enemy_list.reverse()
