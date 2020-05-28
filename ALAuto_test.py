@@ -215,7 +215,7 @@ else:
     Logger.log_error('Unable to connect to the service.')
     sys.exit()
 
-Utils.restart_handler()
+#Utils.restart_handler()
 try:
     while True:
         Utils.update_screen()
@@ -236,9 +236,9 @@ try:
                 script.print_cycle_stats()
             else:
                 Logger.log_msg("Nothing to do, will check again in a few minutes.")
-                Utils.kill_game()
+                #Utils.kill_game()
                 Utils.script_sleep(420,120)
-                Utils.restart_handler()
+                #Utils.restart_handler()
                 continue
         except FunctionTimedOut:
             Logger.log_warning("Timeout occurred, restarting game")
