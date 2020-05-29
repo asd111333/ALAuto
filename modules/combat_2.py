@@ -319,7 +319,7 @@ class CombatModule(object):
             else:
                 _map = 0
                 for x in range(1, 14):
-                    if Utils.find("maps/map_{}-1".format(x), 0.95):
+                    if Utils.find("maps/map_{}-1".format(x), 0.99):
                         _map = x
                         break
                 if _map != 0:
