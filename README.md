@@ -2,6 +2,9 @@
 Please use ALAuto_test.py instead of ALAuto.py and have Tesseract installed.  
 Launch ALAuto_test.py with -d to show debug messages.
 
+### Known Issues
+The retirement and enhancement modules are inherent from the upstream, which have been found unreliable. The filter configuration may not be applied in some conditions, so please be advised that using these module may cause damage to your unlocked ships.
+
 ### 5/28
 
 - Slightly optimized
