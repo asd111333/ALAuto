@@ -852,7 +852,7 @@ class CombatModule(object):
                     return True, target_index
                 elif ret > 0:
                     if self.battle_handler():
-                        Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=6.0)
+                        Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=10.0)
                         return True, target_index
                 else:
                     Utils.wait_till_stable(min_time=1, max_time=6.0)
@@ -1105,7 +1105,7 @@ class CombatModule(object):
 
         if self.movement_handler([boss_region.x, boss_region.y]) > 0:
             if self.battle_handler(boss=True):
-                Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=6.0)
+                Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=10.0)
                 return 1
 
         self.protected_swipe(boss_region.x, boss_region.y, 960, 640, 300)
@@ -1136,7 +1136,7 @@ class CombatModule(object):
 
             if ret > 0:
                 if self.battle_handler(boss=True):
-                    Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=6.0)
+                    Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=10.0)
                     self.exit = 1
                     Logger.log_msg('Attacked boss successfully')
                     return 1
@@ -1153,7 +1153,7 @@ class CombatModule(object):
                     if self.movement_handler(self.homg.inv_transform_coord(self.homg.map_index_to_coord(enemy))) == 1:
                         if self.battle_handler():
                             battle_end = True
-                            Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=6.0)
+                            Utils.wait_till_stable(frame_count=4, min_time=1.0, max_time=10.0)
                             break
                     else:
                         Utils.wait_update_screen(1)
